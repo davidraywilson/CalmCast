@@ -1,8 +1,8 @@
 # CalmCast
 
-CalmCast is a mindful podcast app for Android. Simple discovery and reliable offline listening—without tracking, recommendations, or engagement tricks.
+CalmCast is a minimal mindful podcast app built to work on de-googled E-ink devices utilizing the Mudita Mindful Design library.
 
-"More offline. More life."
+"Let's make technology useful again."
 
 ## What is CalmCast?
 CalmCast keeps podcasting calm. It’s thoughtfully designed with Kotlin and Jetpack Compose to prioritize your attention, privacy, and time. No accounts, no analytics, no dark patterns—just your shows, your choices.
@@ -45,15 +45,12 @@ CalmCast keeps podcasting calm. It’s thoughtfully designed with Kotlin and Jet
 - Resume support for interrupted downloads
 - Reliable background download management
 - Automatic cleanup of corrupted records
-- See `DOWNLOAD_BEHAVIOR.md` for implementation details
 
 ## Roadmap
 - Sleep timer for mindful listening
-- Enhanced playback controls
-- Bookmarking and notes
+- Bookmarking
 - Accessibility improvements
-- Optional privacy‑respecting cloud sync
-- Integrations with open podcast directories (e.g., PodcastIndex)
+- Additional api sources for user preference
 
 ## For developers
 Want to build from source?
