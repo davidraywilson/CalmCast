@@ -6,9 +6,23 @@ CalmCast is a minimal mindful podcast app built to work on de-googled E-ink devi
 
 ## Screenshots
 
-![Screenshot 1](CalmCast%20Screens/Screenshot_20251121-170448.png) ![Screenshot 2](CalmCast%20Screens/Screenshot_20251121-170457.png) ![Screenshot 3](CalmCast%20Screens/Screenshot_20251121-170508.png) ![Screenshot 4](CalmCast%20Screens/Screenshot_20251121-170521.png)
-![Screenshot 5](CalmCast%20Screens/Screenshot_20251121-170525.png) ![Screenshot 6](CalmCast%20Screens/Screenshot_20251121-170555.png) ![Screenshot 7](CalmCast%20Screens/Screenshot_20251121-170601.png) ![Screenshot 8](CalmCast%20Screens/Screenshot_20251121-170611.png)
-![Screenshot 9](CalmCast%20Screens/Screenshot_20251121-170615.png)
+<table>
+<tr>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170448.png"></td>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170457.png"></td>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170508.png"></td>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170521.png"></td>
+</tr>
+<tr>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170525.png"></td>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170555.png"></td>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170601.png"></td>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170611.png"></td>
+</tr>
+<tr>
+<td><img src="CalmCast%20Screens/Screenshot_20251121-170615.png"></td>
+</tr>
+</table>
 
 ## What is CalmCast?
 CalmCast keeps podcasting calm. It’s thoughtfully designed with Kotlin and Jetpack Compose to prioritize your attention, privacy, and time. No accounts, no analytics, no dark patterns—just your shows, your choices.
