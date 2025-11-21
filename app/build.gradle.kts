@@ -1,3 +1,24 @@
+import java.io.File
+
+// Load environment variables from .env file
+fun loadEnv(): Map<String, String> {
+    val envFile = File(rootProject.rootDir, ".env")
+    val envVars = mutableMapOf<String, String>()
+    if (envFile.exists()) {
+        envFile.readLines().forEach { line ->
+            if (line.isNotEmpty() && !line.startsWith("#")) {
+                val parts = line.split("=", limit = 2)
+                if (parts.size == 2) {
+                    envVars[parts[0].trim()] = parts[1].trim()
+                }
+            }
+        }
+    }
+    return envVars
+}
+
+val envVars = loadEnv()
+
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -20,6 +41,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Inject environment variables into BuildConfig
+        buildConfigField("String", "TADDY_API_KEY", "\"${envVars["TADDY_API_KEY"] ?: ""}\"")
     }
 
     buildTypes {
@@ -40,6 +64,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {

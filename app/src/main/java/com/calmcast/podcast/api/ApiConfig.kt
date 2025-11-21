@@ -1,15 +1,16 @@
 package com.calmcast.podcast.api
 
+import com.calmcast.podcast.BuildConfig
+
 object ApiConfig {
     // Taddy GraphQL API endpoint
     const val TADDY_API_URL = "https://api.taddy.org"
 
     // Taddy API Credentials
     // Get your API credentials from: https://taddy.org/dashboard
-    // Store these securely - consider using BuildConfig or environment variables
-    // NEVER commit these credentials to version control!
+    // Credentials are loaded from .env file at build time via BuildConfig
     const val TADDY_USER_ID = "3624"
-    const val TADDY_API_KEY = "5264a2239b967d646532409c45cf10d3f6f7e4f3c157f6c09811556f8f90f1d2a4d71eb2da050a817c978d9b8a5ea81bcc"
+    val TADDY_API_KEY = BuildConfig.TADDY_API_KEY
 
     // Legacy Podchaser config (kept for reference/fallback)
     const val PODCHASER_API_URL = "https://api.podchaser.com/graphql"
