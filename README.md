@@ -192,7 +192,7 @@ When contributing:
 
 ## 📄 License
 
-CalmCast is open source and available under the MIT License. See LICENSE file for details.
+CalmCast is open source and available under the GNU General Public License v3 (GPLv3). See LICENSE file for details.
 
 ## 🙏 Philosophy
 
