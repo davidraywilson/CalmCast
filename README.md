@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="logo.svg" width="100" height="100" alt="CalmCast Logo">
+</div>
+
 # CalmCast
 
 CalmCast is a minimal mindful podcast app built to work on de-googled E-ink devices utilizing the Mudita Mindful Design library.
