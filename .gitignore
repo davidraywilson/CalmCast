@@ -1,0 +1,99 @@
+# Gradle files
+.gradle/
+build/
+*.apk
+*.ap_
+*.aab
+
+# Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+local.properties
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+bin/
+gen/
+out/
+
+# Kotlin
+*.kt.bak
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# Misc
+*.log
+.classpath
+.project
+.settings/
+
+# Signing keys and certificates
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Configuration files with secrets
+gradlew.properties
+keystore.properties
+signing.properties
+
+# API keys and credentials
+*.env
+.env
+.env.local
+.env.*.local
+secrets.xml
+api_keys.xml
+
+# Google Services configuration
+google-services.json
+
+# Firebase configuration
+firebase.json
+.firebaserc
+
+# AWS credentials
+.aws/
+aws_credentials
+
+# Private SSH keys
+.ssh/
+*.pub
+
+# Android device-specific files
+*.dex
+
+# Test coverage reports
+coverage/
+*.gcda
+*.gcno
+
+# Backup and temporary files
+*.bak
+*.swp
+*.swo
+*~
+testResults/
+
+# Dependency directories
+libs/
+.m2/
+node_modules/
+
+# Private folders
+private/
+confidential/
+config/secrets/
+*.hprof
