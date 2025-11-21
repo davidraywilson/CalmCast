@@ -1,11 +1,13 @@
 package com.calmcast.podcast.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -31,9 +33,10 @@ fun SettingsScreen(
 ) {
     val skipOptions = listOf(5, 10, 15, 30)
 
-    LazyColumnMMD(
+    Column(
         modifier = Modifier.fillMaxSize()
     ) {
+        LazyColumnMMD {
         item {
             Row(
                 modifier = Modifier
@@ -95,24 +98,23 @@ fun SettingsScreen(
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
             ) {
                 Text(text = "Skip seconds")
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    skipOptions.forEach { seconds ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSkipSecondsChange(seconds) }
-                                .padding(vertical = 4.dp)
-                        ) {
-                            RadioButton(
-                                selected = skipSeconds == seconds,
-                                onClick = { onSkipSecondsChange(seconds) }
-                            )
-                            Text(text = "$seconds seconds", modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
             }
+        }
+        items(skipOptions) { seconds ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSkipSecondsChange(seconds) }
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
+            ) {
+                RadioButton(
+                    selected = skipSeconds == seconds,
+                    onClick = { onSkipSecondsChange(seconds) }
+                )
+                Text(text = "$seconds seconds", modifier = Modifier.padding(start = 8.dp))
+            }
+        }
         }
     }
 }
