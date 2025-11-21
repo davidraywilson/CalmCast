@@ -1,0 +1,100 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "22bfc0e4082c9d075d3eb2bcfda61257",
+    "entities": [
+      {
+        "tableName": "downloads",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `status` TEXT NOT NULL, `progress` REAL NOT NULL, `downloadUri` TEXT, `episode_id` TEXT NOT NULL, `episode_podcastId` TEXT NOT NULL, `episode_podcastTitle` TEXT NOT NULL, `episode_title` TEXT NOT NULL, `episode_publishDate` TEXT NOT NULL, `episode_duration` TEXT NOT NULL, `episode_audioUrl` TEXT NOT NULL, `episode_downloadedPath` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "progress",
+            "columnName": "progress",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "downloadUri",
+            "columnName": "downloadUri",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "episode.id",
+            "columnName": "episode_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode.podcastId",
+            "columnName": "episode_podcastId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode.podcastTitle",
+            "columnName": "episode_podcastTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode.title",
+            "columnName": "episode_title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode.publishDate",
+            "columnName": "episode_publishDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode.duration",
+            "columnName": "episode_duration",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode.audioUrl",
+            "columnName": "episode_audioUrl",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode.downloadedPath",
+            "columnName": "episode_downloadedPath",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '22bfc0e4082c9d075d3eb2bcfda61257')"
+    ]
+  }
+}

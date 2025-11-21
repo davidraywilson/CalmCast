@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CalmCast</string>
+    <string name="subscriptions">Following</string>
+    <string name="search">Search</string>
+    <string name="downloads">Downloads</string>
+    <string name="podcast_detail">Podcast Detail</string>
+    <string name="episodes">Episodes</string>
+    <string name="subscribe">Follow</string>
+    <string name="unsubscribe">Unfollow</string>
+    <string name="subscribed">Following</string>
+    <string name="search_podcasts">Search Podcasts</string>
+    <string name="no_podcasts">No podcasts yet. Go to search to find podcasts!</string>
+    <string name="no_results">No results found</string>
+    <string name="no_episodes">No episodes available</string>
+</resources>

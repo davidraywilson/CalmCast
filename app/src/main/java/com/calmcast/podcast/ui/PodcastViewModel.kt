@@ -1,0 +1,568 @@
+package com.calmcast.podcast.ui
+
+import android.app.Application
+import android.content.ComponentName
+import android.net.Uri
+import android.util.Log
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.core.net.toUri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.calmcast.podcast.PlaybackService
+import com.calmcast.podcast.api.TaddyApiService
+import com.calmcast.podcast.data.Episode
+import com.calmcast.podcast.data.PlaybackPosition
+import com.calmcast.podcast.data.PlaybackPositionDao
+import com.calmcast.podcast.data.Podcast
+import com.calmcast.podcast.data.PodcastDao
+import com.calmcast.podcast.data.PodcastRepository
+import com.calmcast.podcast.data.PodcastWithEpisodes
+import com.calmcast.podcast.data.SettingsManager
+import com.calmcast.podcast.data.SubscriptionManager
+import com.calmcast.podcast.data.download.Download
+import com.calmcast.podcast.data.download.DownloadDao
+import com.calmcast.podcast.data.download.DownloadManager
+import com.calmcast.podcast.utils.DateTimeFormatter
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+
+class PodcastViewModel(
+    private val application: Application,
+    private val podcastDao: PodcastDao,
+    private val playbackPositionDao: PlaybackPositionDao,
+    private val downloadDao: DownloadDao,
+    private val downloadManager: DownloadManager,
+    private val settingsManager: SettingsManager
+) : ViewModel() {
+
+    companion object {
+        private const val TAG = "PodcastViewModel"
+        private const val SEARCH_DEBOUNCE_MS = 500L
+    }
+
+    private val apiService = TaddyApiService()
+    private val subscriptionManager = SubscriptionManager(application, podcastDao)
+    private val repository = PodcastRepository(apiService, subscriptionManager, podcastDao, playbackPositionDao)
+
+    private val _subscriptions = mutableStateOf<List<Podcast>>(emptyList())
+    val subscriptions: State<List<Podcast>> = _subscriptions
+
+    private val _searchResults = mutableStateOf<List<Podcast>>(emptyList())
+    val searchResults: State<List<Podcast>> = _searchResults
+
+    private val _searchQuery = mutableStateOf("")
+    val searchQuery: State<String> = _searchQuery
+
+    private val _isLoading = mutableStateOf(false)
+
+    private val _errorMessage = mutableStateOf<String?>(null)
+
+    private val _currentPodcastDetails = mutableStateOf<PodcastWithEpisodes?>(null)
+    val currentPodcastDetails: State<PodcastWithEpisodes?> = _currentPodcastDetails
+
+    private val _episodesLoading = mutableStateOf(false)
+    val episodesLoading: State<Boolean> = _episodesLoading
+
+    private val _downloads = mutableStateOf<List<Download>>(emptyList())
+    val downloads: State<List<Download>> = _downloads
+
+    private val _playbackPositions = mutableStateOf<Map<String, PlaybackPosition>>(emptyMap())
+    val playbackPositions: State<Map<String, PlaybackPosition>> = _playbackPositions
+
+    // Playback state
+    private val _currentEpisode = mutableStateOf<Episode?>(null)
+    val currentEpisode: State<Episode?> = _currentEpisode
+
+    private val _currentArtworkUri = mutableStateOf<Uri?>(null)
+    val currentArtworkUri: State<Uri?> = _currentArtworkUri
+
+    private val _isPlaying = mutableStateOf(false)
+    val isPlaying: State<Boolean> = _isPlaying
+
+    private val _currentPosition = mutableLongStateOf(0L)
+    val currentPosition: State<Long> = _currentPosition
+
+    private val _duration = mutableLongStateOf(0L)
+    val duration: State<Long> = _duration
+
+    private val _isPlayerReady = mutableStateOf(false)
+
+    private val _isBuffering = mutableStateOf(false)
+    val isBuffering: State<Boolean> = _isBuffering
+
+    private val _showFullPlayer = mutableStateOf(false)
+    val showFullPlayer: State<Boolean> = _showFullPlayer
+
+    private val _playbackError = mutableStateOf<PlaybackManager.PlaybackError?>(null)
+    val playbackError: State<PlaybackManager.PlaybackError?> = _playbackError
+
+    private var mediaController: MediaController? = null
+    private lateinit var playerListener: Player.Listener
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+
+    // Settings
+    private val _isPictureInPictureEnabled = mutableStateOf(false)
+    val isPictureInPictureEnabled: State<Boolean> = _isPictureInPictureEnabled
+
+    private val _isAutoDownloadEnabled = mutableStateOf(false)
+    val isAutoDownloadEnabled: State<Boolean> = _isAutoDownloadEnabled
+
+    private val _skipSeconds = mutableIntStateOf(10)
+    val skipSeconds: State<Int> = _skipSeconds
+
+    private val _isKeepScreenOnEnabled = mutableStateOf(false)
+    val isKeepScreenOnEnabled: State<Boolean> = _isKeepScreenOnEnabled
+
+    private var searchJob: Job? = null
+
+    init {
+        cleanupInvalidDownloads()
+        loadInitialData()
+        observeDownloads()
+        initializeMediaController()
+        registerPlaybackServiceErrorCallback()
+        loadSettings()
+    }
+
+    private fun cleanupInvalidDownloads() {
+        viewModelScope.launch {
+            try {
+                downloadDao.deleteInvalidDownloads()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error cleaning up invalid downloads", e)
+            }
+        }
+    }
+
+    private fun loadSettings() {
+        _isPictureInPictureEnabled.value = settingsManager.isPictureInPictureEnabledSync()
+        _skipSeconds.intValue = settingsManager.getSkipSecondsSync()
+        _isAutoDownloadEnabled.value = settingsManager.isAutoDownloadEnabled()
+        _isKeepScreenOnEnabled.value = settingsManager.isKeepScreenOnEnabledSync()
+
+        viewModelScope.launch {
+            settingsManager.isPictureInPictureEnabled.collect {
+                _isPictureInPictureEnabled.value = it
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.skipSeconds.collect {
+                _skipSeconds.intValue = it
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.autoDownloadEnabled.collect {
+                _isAutoDownloadEnabled.value = it
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.isKeepScreenOnEnabled.collect {
+                _isKeepScreenOnEnabled.value = it
+            }
+        }
+    }
+
+    private inner class PlayerListener : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            _isPlaying.value = isPlaying
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            _isPlayerReady.value = playbackState == Player.STATE_READY
+            _isBuffering.value = playbackState == Player.STATE_BUFFERING
+            if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
+                _currentEpisode.value = null
+            }
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (mediaItem != null) {
+                viewModelScope.launch {
+                    val episode = podcastDao.getEpisodeById(mediaItem.mediaId)
+                    _currentEpisode.value = episode
+                }
+            }
+        }
+    }
+
+    private fun initializeMediaController() {
+        playerListener = PlayerListener()
+        val sessionToken = SessionToken(application, ComponentName(application, PlaybackService::class.java))
+        controllerFuture = MediaController.Builder(application, sessionToken).buildAsync()
+        controllerFuture?.addListener({
+            mediaController = controllerFuture?.get()
+            mediaController?.addListener(playerListener)
+            setupPlaybackStateObserver()
+        }, MoreExecutors.directExecutor())
+    }
+
+    private fun observeDownloads() {
+        downloadManager.downloads.onEach { downloadList ->
+            _downloads.value = downloadList
+        }.launchIn(viewModelScope)
+    }
+
+    private fun setupPlaybackStateObserver() {
+        viewModelScope.launch {
+            while (true) {
+                _currentPosition.longValue = mediaController?.currentPosition ?: 0L
+                _duration.longValue = mediaController?.duration ?: 0L
+
+                // Save playback position every 10 seconds
+                if (_isPlaying.value && _currentEpisode.value != null && _currentPosition.longValue > 0) {
+                    if (_currentPosition.longValue % 10000 < 100) { // Approximately every 10 seconds
+                        repository.savePlaybackPosition(
+                            episodeId = _currentEpisode.value!!.id,
+                            position = _currentPosition.longValue
+                        )
+                    }
+                }
+                delay(100)
+            }
+        }
+    }
+
+    private fun loadInitialData() {
+        _isLoading.value = true
+        viewModelScope.launch {
+            repository.getSubscribedPodcasts().collect { result ->
+                result.onSuccess { podcasts ->
+                    val sortedPodcasts = podcasts.map { podcast ->
+                        async {
+                            val latestEpisode = podcastDao.getLatestEpisodeForPodcast(podcast.id)
+                            podcast to latestEpisode?.publishDate
+                        }
+                    }.awaitAll().sortedByDescending { it.second }.map { it.first }
+                    _subscriptions.value = sortedPodcasts
+                    _isLoading.value = false
+                    checkForNewEpisodes()
+                }.onFailure { exception ->
+                    _errorMessage.value = exception.message
+                    _isLoading.value = false
+                }
+            }
+        }
+    }
+
+    private fun checkForNewEpisodes() {
+        viewModelScope.launch {
+            if (settingsManager.isAutoDownloadEnabled()) {
+                val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
+                for (podcast in subscribedPodcasts) {
+                    val podcastDetails = repository.getPodcastDetails(podcast.id).first().getOrNull()
+                    val latestEpisode = podcastDetails?.episodes?.firstOrNull()
+                    if (latestEpisode != null) {
+                        val existingDownload = _downloads.value.find { it.episode.id == latestEpisode.id }
+                        // Only auto-download if:
+                        // 1. No record exists (never attempted)
+                        // 2. Status is not DELETED (user didn't explicitly delete it)
+                        if (existingDownload == null || existingDownload.status.name != "DELETED") {
+                            if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
+                                downloadManager.startDownload(latestEpisode)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+        
+        // Cancel previous search job
+        searchJob?.cancel()
+        
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            _isLoading.value = false
+        } else {
+            // Create a new debounced search job
+            searchJob = viewModelScope.launch {
+                delay(SEARCH_DEBOUNCE_MS)
+                _isLoading.value = true
+                repository.searchPodcasts(query).collect { result ->
+                    result.onSuccess { podcasts ->
+                        _searchResults.value = podcasts
+                        _isLoading.value = false
+                    }.onFailure { exception ->
+                        _errorMessage.value = exception.message
+                        _isLoading.value = false
+                    }
+                }
+            }
+        }
+    }
+
+    fun subscribeToPodcast(podcast: Podcast) {
+        viewModelScope.launch {
+            repository.subscribeToPodcast(podcast).onSuccess {
+                if (!_subscriptions.value.any { it.id == podcast.id }) {
+                    // Add new podcast and re-sort by latest episode date
+                    val updatedList = _subscriptions.value + podcast
+                    val sortedPodcasts = updatedList.map { p ->
+                        async {
+                            val latestEpisode = podcastDao.getLatestEpisodeForPodcast(p.id)
+                            p to latestEpisode?.publishDate
+                        }
+                    }.awaitAll().sortedByDescending { it.second }.map { it.first }
+                    _subscriptions.value = sortedPodcasts
+                }
+            }.onFailure { _errorMessage.value = it.message }
+        }
+    }
+
+    fun unsubscribeFromPodcast(podcastId: String) {
+        viewModelScope.launch {
+            repository.unsubscribeFromPodcast(podcastId).onSuccess {
+                _subscriptions.value = _subscriptions.value.filter { it.id != podcastId }
+            }.onFailure { _errorMessage.value = it.message }
+        }
+    }
+
+    fun isSubscribed(podcastId: String): Boolean = _subscriptions.value.any { it.id == podcastId }
+
+    fun fetchPodcastDetails(podcastId: String) {
+        _episodesLoading.value = true
+        viewModelScope.launch {
+            repository.getPodcastDetails(podcastId).collect { result ->
+                result.onSuccess { podcastWithEpisodes ->
+                    _currentPodcastDetails.value = podcastWithEpisodes
+                    podcastWithEpisodes?.let { details ->
+                        val episodeIds = details.episodes.map { it.id }
+                        val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
+                        _playbackPositions.value = positions.associateBy { it.episodeId }
+                    }
+                    _episodesLoading.value = false
+                }.onFailure { exception ->
+                    _errorMessage.value = exception.message
+                    _episodesLoading.value = false
+                }
+            }
+        }
+    }
+
+    fun refreshPodcastEpisodes(podcastId: String) {
+        _episodesLoading.value = true
+        viewModelScope.launch {
+            try {
+                // Delete old episodes from database
+                podcastDao.deleteEpisodesForPodcast(podcastId)
+                
+                // Fetch fresh episodes from API
+                val result = apiService.getPodcastDetails(podcastId)
+                result.onSuccess { podcastDetailsResponse ->
+                    val podcastData = podcastDetailsResponse.podcast
+                    if (podcastData != null) {
+                        // Convert and insert new episodes
+                        val episodes = podcastData.episodes.map { episodeData ->
+                            Episode(
+                                id = episodeData.id,
+                                podcastId = podcastData.id,
+                                podcastTitle = podcastData.title,
+                                title = episodeData.title,
+                                publishDate = episodeData.publishDate,
+                                duration = episodeData.duration,
+                                audioUrl = episodeData.audioUrl
+                            )
+                        }
+                        podcastDao.insertEpisodes(episodes)
+                        
+                        // Fetch and display updated details
+                        fetchPodcastDetails(podcastId)
+                        
+                        // Trigger auto-download check for new episodes
+                        if (settingsManager.isAutoDownloadEnabled()) {
+                            checkForNewEpisodes()
+                        }
+                    }
+                }.onFailure { exception ->
+                    _errorMessage.value = "Failed to refresh episodes: ${exception.message}"
+                    _episodesLoading.value = false
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error refreshing episodes: ${e.message}"
+                _episodesLoading.value = false
+            }
+        }
+    }
+
+    fun playEpisode(episode: Episode) {
+        viewModelScope.launch {
+            Log.d(TAG, "playEpisode() called for: ${episode.title}")
+            var episodeToPlay = episode
+            val download = _downloads.value.find { it.episode.id == episode.id }
+            if (download?.downloadUri != null) {
+                episodeToPlay = episode.copy(audioUrl = download.downloadUri)
+                Log.d(TAG, "Playing downloaded episode: ${episode.title}")
+                Log.d(TAG, "Using download URI: ${download.downloadUri}")
+            }
+
+            var details = currentPodcastDetails.value
+            if (details == null || details.podcast.id != episode.podcastId) {
+                val podcastWithEpisodes = repository.getPodcastWithEpisodes(episode.podcastId)
+                if (podcastWithEpisodes != null) {
+                    _currentPodcastDetails.value = podcastWithEpisodes
+                    details = podcastWithEpisodes
+                }
+            }
+
+            var lastPosition = repository.getPlaybackPosition(episode.id)?.position ?: 0L
+            val durationInSeconds = DateTimeFormatter.parseDuration(episode.duration)
+            if (durationInSeconds != null && lastPosition > 0) {
+                val durationInMilliseconds = durationInSeconds * 1000
+                if (lastPosition.toDouble() / durationInMilliseconds > 0.99) {
+                    lastPosition = 0L
+                }
+            }
+
+            val artworkUri = details?.podcast?.imageUrl?.toUri()
+            _currentArtworkUri.value = artworkUri
+
+            val mediaMetadata = MediaMetadata.Builder()
+                .setTitle(episode.title)
+                .setArtist(details?.podcast?.author)
+                .setArtworkUri(artworkUri)
+                .build()
+
+            val uri = episodeToPlay.audioUrl.toUri()
+            Log.d(TAG, "Playing episode with URI scheme: ${uri.scheme}, path: ${uri.path}")
+
+            val mediaItem = MediaItem.Builder()
+                .setUri(episodeToPlay.audioUrl)
+                .setMediaId(episode.id)
+                .setMediaMetadata(mediaMetadata)
+                .build()
+
+            Log.d(TAG, "Playing episode: ${episode.title}, URI: ${episodeToPlay.audioUrl}")
+            mediaController?.setMediaItem(mediaItem, lastPosition)
+            mediaController?.prepare()
+            mediaController?.play()
+
+            _currentEpisode.value = episodeToPlay
+            _showFullPlayer.value = false
+        }
+    }
+
+    fun togglePlayPause() {
+        if (_isPlaying.value) {
+            mediaController?.pause()
+        } else {
+            mediaController?.play()
+        }
+    }
+
+    fun seekForward() {
+        val newPosition = (mediaController?.currentPosition ?: 0L) + (_skipSeconds.intValue * 1000L)
+        mediaController?.seekTo(newPosition)
+    }
+
+    fun seekBackward() {
+        val newPosition = (mediaController?.currentPosition ?: 0L) - (_skipSeconds.intValue * 1000L)
+        mediaController?.seekTo(newPosition)
+    }
+
+    fun seekTo(positionMs: Long) {
+        mediaController?.seekTo(positionMs)
+    }
+
+    fun showFullPlayer() {
+        _showFullPlayer.value = true
+    }
+
+    fun minimizePlayer() {
+        _showFullPlayer.value = false
+    }
+
+    fun downloadEpisode(episode: Episode) {
+        downloadManager.startDownload(episode)
+    }
+
+    fun pauseDownload(episodeId: String) {
+        downloadManager.pauseDownload(episodeId)
+    }
+
+    fun cancelDownload(episodeId: String) {
+        downloadManager.cancelDownload(episodeId)
+    }
+
+    fun resumeDownload(episodeId: String) {
+        downloadManager.resumeDownload(episodeId)
+    }
+
+    fun deleteEpisode(episode: Episode) {
+        downloadManager.deleteDownload(episode)
+    }
+
+    fun clearPlaybackError() {
+        _playbackError.value = null
+    }
+
+    fun clearPodcastDetails() {
+        _currentPodcastDetails.value = null
+        _playbackPositions.value = emptyMap()
+    }
+
+    fun setPictureInPictureEnabled(enabled: Boolean) {
+        settingsManager.setPictureInPictureEnabled(enabled)
+    }
+
+    fun setAutoDownloadEnabled(enabled: Boolean) {
+        settingsManager.setAutoDownloadEnabled(enabled)
+    }
+
+    fun setSkipSeconds(seconds: Int) {
+        settingsManager.setSkipSeconds(seconds)
+    }
+
+    fun setKeepScreenOnEnabled(enabled: Boolean) {
+        settingsManager.setKeepScreenOnEnabled(enabled)
+    }
+
+    private fun registerPlaybackServiceErrorCallback() {
+        PlaybackService.setErrorCallback { error ->
+            val cause = error.cause
+            val isNetworkError = cause is java.net.UnknownHostException ||
+                                cause is java.net.SocketException
+
+            if (isNetworkError) {
+                _playbackError.value = PlaybackManager.PlaybackError.NetworkError("No internet connection")
+                _isPlaying.value = false
+                _isBuffering.value = false
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mediaController?.removeListener(playerListener)
+        PlaybackService.setErrorCallback(null)
+        viewModelScope.launch {
+            if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
+                repository.savePlaybackPosition(
+                    episodeId = _currentEpisode.value!!.id,
+                    position = _currentPosition.longValue
+                )
+            }
+        }
+        controllerFuture?.let {
+            MediaController.releaseFuture(it)
+        }
+    }
+}
