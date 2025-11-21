@@ -1,108 +1,67 @@
 # CalmCast
-Mindful podcast streaming on Android. A thoughtfully designed podcast app built with Kotlin and Jetpack Compose, adhering to the **Mudita Mindful Design framework**. Intentional, distraction-free discovery and listening without tracking, algorithmic manipulation, or feature bloat.
 
-## Features
-- **Subscriptions Screen**: Browse your curated podcast collection in a focused, organized view
-- **Podcast Discovery**: Real-time search to find podcasts without algorithmic interference
-- **Episode Details**: View full episode archives, descriptions, and publication history
-- **Offline Listening**: Download episodes for reliable offline playback
-- **Pause & Resume**: Download management with resume capability
-- **Privacy-First**: No tracking, no data collection, no account required
+CalmCast is a mindful podcast app for Android. Simple discovery and reliable offline listening—without tracking, recommendations, or engagement tricks.
 
-## Tech Stack
-- **Language**: Kotlin 1.9+
-- **UI Framework**: Jetpack Compose
-- **Design System**: Material Design 3
-- **Navigation**: Jetpack Navigation Compose
-- **Architecture**: MVVM + StateFlow
-- **Database**: Room
-- **Download Manager**: AndroidDownloadManager (with resume)
-- **Min SDK**: 24 | **Target SDK**: 34
+"More offline. More life."
 
-## Project Structure
-```
-CalmCast/
-├── app/
-│   ├── src/main/java/com/calmcast/podcast/
-│   │   ├── MainActivity.kt
-│   │   ├── CalmCastApplication.kt
-│   │   ├── PlaybackService.kt
-│   │   ├── data/
-│   │   │   ├── Models.kt
-│   │   │   ├── PodcastDatabase.kt
-│   │   │   ├── dao/
-│   │   │   └── download/
-│   │   └── ui/
-│   │       ├── PodcastViewModel.kt
-│   │       ├── Screens.kt
-│   │       └── components/
-│   ├── build.gradle.kts
-│   └── proguard-rules.pro
-├── build.gradle.kts
-├── settings.gradle.kts
-└── DOWNLOAD_BEHAVIOR.md
-```
+## What is CalmCast?
+CalmCast keeps podcasting calm. It’s thoughtfully designed with Kotlin and Jetpack Compose to prioritize your attention, privacy, and time. No accounts, no analytics, no dark patterns—just your shows, your choices.
 
-## Getting Started
-### Prerequisites
-- Android Studio Arctic Fox or later
-- JDK 11+
-- Android SDK 34+
-- Device or emulator running API 24+
-### Setup
-1. Clone and open: `git clone https://github.com/yourusername/CalmCast.git && cd CalmCast`
-2. Open in Android Studio
-3. Build: Build → Make Project
-4. Connect device or start emulator
-5. Run: Run → Run 'app' (Shift + F10)
-### First Launch
-CalmCast includes sample podcasts. Explore by browsing subscriptions, searching for new podcasts, subscribing, and downloading episodes for offline access.
+## Core principles (Mudita Mindful Design)
+- Simplicity: One clear purpose per screen; no feature bloat
+- Privacy: No tracking, no data monetization, no third‑party analytics
+- Intention: Tools that support deliberate listening, not habit loops
+- Focus: Clean UI that stays out of your way
+- Offline‑first: Robust downloads reduce dependency on connectivity
 
-## Usage
-### Subscriptions Screen
-View all subscribed podcasts in a focused, organized library. Tap any podcast to explore episodes.
-### Podcast Detail
-- View title, author, description
-- Browse full episode archive
-- Download episodes for offline access
-- Subscribe/unsubscribe
-### Search Screen
-Discover new podcasts by title, author, or keywords without algorithmic interference.
-### Download Management
-- Start downloads with one tap
-- Pause and resume downloads anytime
-- Delete downloaded episodes to free space
-- Enjoy offline playback without internet
+## Highlights
+- Browse and subscribe to shows in a focused library
+- Thoughtful discovery via search (no algorithmic manipulation)
+- Complete episode archives with rich details
+- Offline listening with pause/resume downloads
+- Download management to free space and stay organized
 
-## Mudita Mindful Design Principles
-- **Simplicity**: Single, clear purpose per screen. No bloat, no decision paralysis
-- **Privacy**: No tracking, no algorithmic manipulation, no data monetization
-- **Intention**: Features support deliberate choices, not engagement traps
-- **Focus**: Clean interface that respects your attention
-- **Offline-First**: Downloads built-in, reducing dependency on connectivity
+## Why it matters
+- Privacy‑first: Everything stays on your device; preferences are stored locally
+- Distraction‑free: No ads, no pushy prompts, no engagement targets
+- Reliable: Resume interrupted downloads and listen without network access
 
-## Privacy & Data
+## Tech stack (for the curious)
+- Language: Kotlin 1.9+
+- UI: Jetpack Compose + Material Design 3
+- Navigation: Jetpack Navigation Compose
+- Architecture: MVVM + StateFlow
+- Persistence: Room
+- Downloads: AndroidDownloadManager (with resume)
+- Android: Min SDK 24, Target SDK 34
+
+## Privacy & data
 - No account required
 - No data collection or transmission
 - No tracking or analytics
-- All preferences stored locally
-- Offline-first architecture
-### Download Behavior
+- All preferences are stored locally on‑device
+
+### Download behavior
 - Resume support for interrupted downloads
 - Reliable background download management
 - Automatic cleanup of corrupted records
-- See `DOWNLOAD_BEHAVIOR.md` for details
+- See `DOWNLOAD_BEHAVIOR.md` for implementation details
 
-## Future Enhancements
-- Integration with podcast APIs (Listen Notes, PodcastIndex)
-- Enhanced media playback controls
+## Roadmap
 - Sleep timer for mindful listening
+- Enhanced playback controls
 - Bookmarking and notes
 - Accessibility improvements
-- Optional privacy-respecting cloud sync
+- Optional privacy‑respecting cloud sync
+- Integrations with open podcast directories (e.g., PodcastIndex)
+
+## For developers
+Want to build from source?
+- Requirements: Android Studio (Arctic Fox or newer), JDK 11+, Android SDK 34+, device/emulator API 24+
+- Quick start: clone → open in Android Studio → Build → Run
+
 ## Contributing
-Contributions welcome! Please align changes with core Mudita Mindful Design principles: simplicity, privacy, and focus. Test thoroughly on target Android versions.
+Contributions are welcome—please align with the core principles of simplicity, privacy, and focus. Test on supported Android versions.
+
 ## License
-GNU General Public License v3 (GPLv3). See LICENSE for details.
-## Philosophy
-"More offline. More life." — CalmCast is built on the belief that technology should serve you, not demand your attention. By embracing simplicity, privacy, and intention, we've created a podcast experience that respects your time and supports mindful consumption.
+GPL‑3.0 (see `LICENSE`).
