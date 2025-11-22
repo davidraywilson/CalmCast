@@ -123,17 +123,18 @@ class ItunesApiService {
                     ?: throw Exception("Empty feed response")
 
                 Log.d("ItunesApi", "Parsing RSS feed, size: ${feedBody.length} bytes")
-                val episodes = parseRssFeed(feedBody)
-                Log.d("ItunesApi", "Parsed ${episodes.size} episodes from RSS feed")
-                Result.success(ItunesPodcastDetailsResponse(episodes = episodes))
+                val parseResult = parseRssFeed(feedBody)
+                Log.d("ItunesApi", "Parsed ${parseResult.episodes.size} episodes from RSS feed")
+                Result.success(ItunesPodcastDetailsResponse(episodes = parseResult.episodes, description = parseResult.description))
             } catch (e: Exception) {
                 Log.e("ItunesApi", "Error fetching podcast details for $podcastId", e)
                 Result.failure(e)
             }
         }
 
-    private fun parseRssFeed(feedXml: String): List<ItunesEpisodeResult> {
+    private fun parseRssFeed(feedXml: String): RssFeedParseResult {
         val episodes = mutableListOf<ItunesEpisodeResult>()
+        var podcastDescription = ""
 
         try {
             val factory = XmlPullParserFactory.newInstance()
@@ -148,6 +149,7 @@ class ItunesApiService {
             var currentDuration = ""
             var currentAudioUrl = ""
             var inItem = false
+            var inChannel = false
             var itemCount = 0
 
             while (eventType != XmlPullParser.END_DOCUMENT) {
@@ -155,6 +157,9 @@ class ItunesApiService {
                     XmlPullParser.START_TAG -> {
                         val tagName = parser.name.lowercase()
                         when (tagName) {
+                            "channel" -> {
+                                inChannel = true
+                            }
                             "item" -> {
                                 inItem = true
                                 itemCount++
@@ -167,6 +172,8 @@ class ItunesApiService {
                             "description", "summary" -> {
                                 if (inItem && currentDescription.isEmpty()) {
                                     currentDescription = parser.nextText()
+                                } else if (inChannel && !inItem && podcastDescription.isEmpty()) {
+                                    podcastDescription = parser.nextText()
                                 }
                             }
                             "pubdate", "pubDate" -> {
@@ -195,25 +202,32 @@ class ItunesApiService {
                     }
                     XmlPullParser.END_TAG -> {
                         val tagName = parser.name.lowercase()
-                        if (tagName == "item" && inItem) {
-                            if (currentTitle.isNotEmpty() && currentAudioUrl.isNotEmpty()) {
-                                Log.d("ItunesApi", "Adding episode: $currentTitle")
-                                episodes.add(
-                                    ItunesEpisodeResult(
-                                        title = currentTitle,
-                                        description = currentDescription,
-                                        pubDate = currentPubDate,
-                                        duration = currentDuration,
-                                        audioUrl = currentAudioUrl
-                                    )
-                                )
+                        when (tagName) {
+                            "channel" -> {
+                                inChannel = false
                             }
-                            inItem = false
-                            currentTitle = ""
-                            currentDescription = ""
-                            currentPubDate = ""
-                            currentDuration = ""
-                            currentAudioUrl = ""
+                            "item" -> {
+                                if (inItem) {
+                                    if (currentTitle.isNotEmpty() && currentAudioUrl.isNotEmpty()) {
+                                        Log.d("ItunesApi", "Adding episode: $currentTitle")
+                                        episodes.add(
+                                            ItunesEpisodeResult(
+                                                title = currentTitle,
+                                                description = currentDescription,
+                                                pubDate = currentPubDate,
+                                                duration = currentDuration,
+                                                audioUrl = currentAudioUrl
+                                            )
+                                        )
+                                    }
+                                    inItem = false
+                                    currentTitle = ""
+                                    currentDescription = ""
+                                    currentPubDate = ""
+                                    currentDuration = ""
+                                    currentAudioUrl = ""
+                                }
+                            }
                         }
                     }
                 }
@@ -224,7 +238,7 @@ class ItunesApiService {
             Log.e("ItunesApi", "Error parsing RSS feed", e)
         }
 
-        return episodes
+        return RssFeedParseResult(episodes = episodes, description = podcastDescription)
     }
 }
 
@@ -242,7 +256,8 @@ data class ItunesPodcastResult(
 )
 
 data class ItunesPodcastDetailsResponse(
-    val episodes: List<ItunesEpisodeResult>
+    val episodes: List<ItunesEpisodeResult>,
+    val description: String = ""
 )
 
 data class ItunesEpisodeResult(
@@ -251,4 +266,9 @@ data class ItunesEpisodeResult(
     val pubDate: String,
     val duration: String,
     val audioUrl: String
+)
+
+data class RssFeedParseResult(
+    val episodes: List<ItunesEpisodeResult>,
+    val description: String
 )
