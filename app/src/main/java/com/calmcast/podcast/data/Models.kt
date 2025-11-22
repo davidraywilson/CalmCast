@@ -13,7 +13,8 @@ data class Podcast(
     val author: String,
     val description: String,
     val imageUrl: String?,
-    val episodeCount: Int
+    val episodeCount: Int,
+    val feedUrl: String? = null
 )
 
 @Entity(tableName = "episodes", foreignKeys = [ForeignKey(entity = Podcast::class,
