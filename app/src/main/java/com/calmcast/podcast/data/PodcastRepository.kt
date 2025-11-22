@@ -79,7 +79,8 @@ class PodcastRepository(
                 podcastDao.insertEpisodes(episodes)
                 emit(Result.success(podcastDao.getPodcastWithEpisodes(podcastId)))
             }.onFailure { exception ->
-                Log.e("PodcastRepository", "Error fetching podcast details", exception)
+                Log.w("PodcastRepository", "Error fetching podcast details: ${exception.message}")
+                // Always propagate feed errors (404/410) so UI can show appropriate message
                 emit(Result.failure<PodcastWithEpisodes?>(exception))
             }
         } else {

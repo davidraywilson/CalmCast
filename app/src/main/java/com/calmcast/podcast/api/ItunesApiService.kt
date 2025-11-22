@@ -72,7 +72,6 @@ class ItunesApiService {
                 val artworkUrl = obj.get("artworkUrl600")?.asString
                 val feedUrl = obj.get("feedUrl")?.asString
 
-                // Only include results that have a feedUrl (required for episode fetching)
                 if (trackId != null && trackName != null && feedUrl != null) {
                     ItunesPodcastResult(
                         id = trackId.toString(),
@@ -116,7 +115,11 @@ class ItunesApiService {
 
                 if (!response.isSuccessful) {
                     Log.e("ItunesApi", "Failed to fetch RSS: ${response.code} ${response.message}")
-                    throw Exception("Failed to fetch RSS feed: ${response.code}")
+                    when (response.code) {
+                        404 -> throw FeedNotFoundException("Podcast feed not found (404)")
+                        410 -> throw FeedGoneException("Podcast feed is no longer available (410)")
+                        else -> throw Exception("Failed to fetch RSS feed: ${response.code}")
+                    }
                 }
 
                 val feedBody = response.body?.string()

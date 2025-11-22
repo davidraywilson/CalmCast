@@ -17,6 +17,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.calmcast.podcast.PlaybackService
+import com.calmcast.podcast.api.FeedGoneException
+import com.calmcast.podcast.api.FeedNotFoundException
 import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PlaybackPosition
 import com.calmcast.podcast.data.PlaybackPositionDao
@@ -81,6 +83,9 @@ class PodcastViewModel(
 
     private val _episodesLoading = mutableStateOf(false)
     val episodesLoading: State<Boolean> = _episodesLoading
+
+    private val _detailError = mutableStateOf<Pair<Int, String>?>(null)
+    val detailError: State<Pair<Int, String>?> = _detailError
 
     private val _downloads = mutableStateOf<List<Download>>(emptyList())
     val downloads: State<List<Download>> = _downloads
@@ -343,6 +348,7 @@ class PodcastViewModel(
 
     fun fetchPodcastDetails(podcastId: String) {
         _episodesLoading.value = true
+        _detailError.value = null
         viewModelScope.launch {
             Log.d(TAG, "fetchPodcastDetails called for $podcastId")
             // First, check if podcast exists in DB. If not, try to find it from search results
@@ -375,7 +381,11 @@ class PodcastViewModel(
                     _episodesLoading.value = false
                 }.onFailure { exception ->
                     Log.e(TAG, "Error fetching podcast details", exception)
-                    _errorMessage.value = exception.message
+                    when (exception) {
+                        is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
+                        is FeedGoneException -> _detailError.value = 410 to "Podcast feed is no longer available"
+                        else -> _errorMessage.value = exception.message
+                    }
                     _episodesLoading.value = false
                 }
             }
@@ -527,6 +537,7 @@ class PodcastViewModel(
     fun clearPodcastDetails() {
         _currentPodcastDetails.value = null
         _playbackPositions.value = emptyMap()
+        _detailError.value = null
     }
 
     fun setPictureInPictureEnabled(enabled: Boolean) {
