@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -46,13 +47,15 @@ fun SubscriptionsScreen(
         LazyColumnMMD(
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(podcasts) { podcast ->
+            itemsIndexed(podcasts) { index, podcast ->
                 PodcastCard(podcast = podcast, onClick = { onPodcastClick(podcast) })
 
-                HorizontalDividerMMD(
-                    modifier = Modifier.padding(start = 16.dp),
-                    thickness = 1.dp
-                )
+                if (index < podcasts.size - 1) {
+                    HorizontalDividerMMD(
+                        modifier = Modifier.padding(start = 16.dp),
+                        thickness = 1.dp
+                    )
+                }
             }
         }
     }
