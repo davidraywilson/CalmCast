@@ -155,6 +155,7 @@ fun EpisodeItem(
     playbackPosition: PlaybackPosition?,
     isCurrentlyPlaying: Boolean,
     isBuffering: Boolean = false,
+    showPodcastName: Boolean = false,
     onClick: () -> Unit = {},
     onDownloadClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
@@ -245,9 +246,20 @@ fun EpisodeItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = episode.title,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (showPodcastName) {
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = episode.podcastTitle,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -258,12 +270,12 @@ fun EpisodeItem(
                 ) {
                     Text(
                         text = DateTimeFormatter.formatPublishDate(episode.publishDate),
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Normal
                     )
                     Text(
                         text = DateTimeFormatter.formatDurationFromString(episode.duration),
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Normal
                     )
                 }

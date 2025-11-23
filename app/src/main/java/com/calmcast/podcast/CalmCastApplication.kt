@@ -5,7 +5,6 @@ import androidx.work.Configuration
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.calmcast.podcast.api.TaddyApiService
 import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
@@ -27,11 +26,10 @@ class CalmCastApplication : Application(), Configuration.Provider {
 
     override val workManagerConfiguration: Configuration
         get() {
-            val taddyApiService = TaddyApiService()
             val settingsManager = SettingsManager(this)
             val downloadDao = DownloadDatabase.getDatabase(this).downloadDao()
             val podcastDao = PodcastDatabase.getDatabase(this).podcastDao()
-            val workerFactory = NewEpisodeWorkerFactory(subscriptionManager, taddyApiService, settingsManager, downloadDao, podcastDao, downloadManager)
+            val workerFactory = NewEpisodeWorkerFactory(subscriptionManager, settingsManager, downloadDao, podcastDao, downloadManager)
 
             return Configuration.Builder()
                 .setWorkerFactory(workerFactory)
@@ -46,7 +44,6 @@ class CalmCastApplication : Application(), Configuration.Provider {
         val downloadDao = DownloadDatabase.getDatabase(this).downloadDao()
         val podcastDao = PodcastDatabase.getDatabase(this).podcastDao()
         val settingsManager = SettingsManager(this)
-        val taddyApiService = TaddyApiService()
         subscriptionManager = SubscriptionManager(this, podcastDao)
         downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, podcastDao)
 
@@ -55,7 +52,7 @@ class CalmCastApplication : Application(), Configuration.Provider {
             downloadDao.deleteInvalidDownloads()
         }
 
-        AppLifecycleTracker.initialize(subscriptionManager, downloadManager, settingsManager, taddyApiService, podcastDao)
+        AppLifecycleTracker.initialize(subscriptionManager, downloadManager, settingsManager, podcastDao)
         setupNewEpisodeWorker()
     }
 

@@ -17,7 +17,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.calmcast.podcast.PlaybackService
-import com.calmcast.podcast.api.TaddyApiService
+import com.calmcast.podcast.api.FeedGoneException
+import com.calmcast.podcast.api.FeedNotFoundException
 import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PlaybackPosition
 import com.calmcast.podcast.data.PlaybackPositionDao
@@ -56,9 +57,13 @@ class PodcastViewModel(
         private const val SEARCH_DEBOUNCE_MS = 500L
     }
 
-    private val apiService = TaddyApiService()
     private val subscriptionManager = SubscriptionManager(application, podcastDao)
-    private val repository = PodcastRepository(apiService, subscriptionManager, podcastDao, playbackPositionDao)
+    private val repository = PodcastRepository(
+        com.calmcast.podcast.api.ItunesApiService(),
+        subscriptionManager,
+        podcastDao,
+        playbackPositionDao
+    )
 
     private val _subscriptions = mutableStateOf<List<Podcast>>(emptyList())
     val subscriptions: State<List<Podcast>> = _subscriptions
@@ -78,6 +83,9 @@ class PodcastViewModel(
 
     private val _episodesLoading = mutableStateOf(false)
     val episodesLoading: State<Boolean> = _episodesLoading
+
+    private val _detailError = mutableStateOf<Pair<Int, String>?>(null)
+    val detailError: State<Pair<Int, String>?> = _detailError
 
     private val _downloads = mutableStateOf<List<Download>>(emptyList())
     val downloads: State<List<Download>> = _downloads
@@ -340,9 +348,30 @@ class PodcastViewModel(
 
     fun fetchPodcastDetails(podcastId: String) {
         _episodesLoading.value = true
+        _detailError.value = null
         viewModelScope.launch {
+            Log.d(TAG, "fetchPodcastDetails called for $podcastId")
+            // First, check if podcast exists in DB. If not, try to find it from search results
+            val podcast = podcastDao.getPodcast(podcastId)
+            Log.d(TAG, "Podcast from DB: ${podcast?.title}")
+            
+            if (podcast == null) {
+                // Podcast not in DB - might be from search results
+                // Try to find it in current search results
+                Log.d(TAG, "Looking in search results (${_searchResults.value.size} results)")
+                val searchResult = _searchResults.value.find { it.id == podcastId }
+                if (searchResult != null) {
+                    // Save it to DB so we can fetch details
+                    Log.d(TAG, "Found in search results, saving to DB: ${searchResult.title}, feedUrl: ${searchResult.feedUrl}")
+                    podcastDao.insertPodcast(searchResult)
+                } else {
+                    Log.e(TAG, "Podcast not found in search results either")
+                }
+            }
+            
             repository.getPodcastDetails(podcastId).collect { result ->
                 result.onSuccess { podcastWithEpisodes ->
+                    Log.d(TAG, "Got podcast details with ${podcastWithEpisodes?.episodes?.size} episodes")
                     _currentPodcastDetails.value = podcastWithEpisodes
                     podcastWithEpisodes?.let { details ->
                         val episodeIds = details.episodes.map { it.id }
@@ -351,7 +380,17 @@ class PodcastViewModel(
                     }
                     _episodesLoading.value = false
                 }.onFailure { exception ->
-                    _errorMessage.value = exception.message
+                    Log.e(TAG, "Error fetching podcast details", exception)
+                    when (exception) {
+                        is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
+                        is FeedGoneException -> {
+                            // Check if it's a 403 error
+                            val errorCode = if (exception.message?.contains("403") == true) 403 else 410
+                            val message = exception.message ?: "Podcast feed unavailable"
+                            _detailError.value = errorCode to message
+                        }
+                        else -> _errorMessage.value = exception.message
+                    }
                     _episodesLoading.value = false
                 }
             }
@@ -365,36 +404,20 @@ class PodcastViewModel(
                 // Delete old episodes from database
                 podcastDao.deleteEpisodesForPodcast(podcastId)
                 
-                // Fetch fresh episodes from API
-                val result = apiService.getPodcastDetails(podcastId)
-                result.onSuccess { podcastDetailsResponse ->
-                    val podcastData = podcastDetailsResponse.podcast
-                    if (podcastData != null) {
-                        // Convert and insert new episodes
-                        val episodes = podcastData.episodes.map { episodeData ->
-                            Episode(
-                                id = episodeData.id,
-                                podcastId = podcastData.id,
-                                podcastTitle = podcastData.title,
-                                title = episodeData.title,
-                                publishDate = episodeData.publishDate,
-                                duration = episodeData.duration,
-                                audioUrl = episodeData.audioUrl
-                            )
+                // Fetch fresh episodes from repository
+                repository.getPodcastDetails(podcastId).collect { result ->
+                    result.onSuccess { podcastWithEpisodes ->
+                        if (podcastWithEpisodes != null) {
+                            fetchPodcastDetails(podcastId)
+                            
+                            if (settingsManager.isAutoDownloadEnabled()) {
+                                checkForNewEpisodes()
+                            }
                         }
-                        podcastDao.insertEpisodes(episodes)
-                        
-                        // Fetch and display updated details
-                        fetchPodcastDetails(podcastId)
-                        
-                        // Trigger auto-download check for new episodes
-                        if (settingsManager.isAutoDownloadEnabled()) {
-                            checkForNewEpisodes()
-                        }
+                    }.onFailure { exception ->
+                        _errorMessage.value = "Failed to refresh episodes: ${exception.message}"
+                        _episodesLoading.value = false
                     }
-                }.onFailure { exception ->
-                    _errorMessage.value = "Failed to refresh episodes: ${exception.message}"
-                    _episodesLoading.value = false
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Error refreshing episodes: ${e.message}"
@@ -517,6 +540,7 @@ class PodcastViewModel(
     fun clearPodcastDetails() {
         _currentPodcastDetails.value = null
         _playbackPositions.value = emptyMap()
+        _detailError.value = null
     }
 
     fun setPictureInPictureEnabled(enabled: Boolean) {

@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +29,7 @@ import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
 import com.mudita.mmd.components.slider.SliderMMD
+import com.mudita.mmd.components.switcher.SwitchMMD
 
 @Composable
 fun MiniPlayer(
@@ -156,19 +158,27 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight()
                     .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalArrangement = Arrangement.Bottom,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = episode.title,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+                    textAlign = TextAlign.Center,
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = episode.podcastTitle,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Normal,
                 )
             }
         }
@@ -287,19 +297,31 @@ fun FullPlayerScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 32.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            IconButton(
-                onClick = { onKeepScreenOnToggle(!isKeepScreenOnEnabled) }
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = if (isKeepScreenOnEnabled) Icons.Outlined.LockClock else Icons.Outlined.Lock,
-                    contentDescription = if (isKeepScreenOnEnabled) "Screen always on" else "Allow screen off",
+                    imageVector = Icons.Outlined.Lock,
+                    contentDescription = "Allow screen off",
+                    modifier = Modifier.size(24.dp)
+                )
+
+                SwitchMMD(
+                    checked = isKeepScreenOnEnabled,
+                    onCheckedChange = { onKeepScreenOnToggle(it) }
+                )
+
+                Icon(
+                    imageVector = Icons.Outlined.LockClock,
+                    contentDescription = "Screen always on",
                     modifier = Modifier.size(24.dp)
                 )
             }

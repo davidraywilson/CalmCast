@@ -66,6 +66,7 @@ import com.calmcast.podcast.ui.PodcastViewModel
 import com.calmcast.podcast.ui.PodcastViewModelFactory
 import com.calmcast.podcast.ui.SettingsScreen
 import com.calmcast.podcast.ui.downloads.DownloadsScreen
+import com.calmcast.podcast.ui.podcastdetail.FeedNotFoundScreen
 import com.calmcast.podcast.ui.podcastdetail.PodcastDetailScreen
 import com.calmcast.podcast.ui.search.SearchScreen
 import com.calmcast.podcast.ui.subscriptions.SubscriptionsScreen
@@ -413,44 +414,52 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             }
                         }
 
-                        val podcastWithEpisodes = viewModel.currentPodcastDetails.value ?: return@composable
+                        val detailError = viewModel.detailError.value
+                        if (detailError != null) {
+                            FeedNotFoundScreen(
+                                errorCode = detailError.first,
+                                onBackClick = { navController.navigateUp() }
+                            )
+                        } else {
+                            val podcastWithEpisodes = viewModel.currentPodcastDetails.value ?: return@composable
 
-                        val podcast = podcastWithEpisodes.podcast
-                        val episodes = podcastWithEpisodes.episodes
-                        val isLoadingEpisodes = viewModel.episodesLoading.value
-                        val downloads = viewModel.downloads.value
-                        val playbackPositions = viewModel.playbackPositions.value
+                            val podcast = podcastWithEpisodes.podcast
+                            val episodes = podcastWithEpisodes.episodes
+                            val isLoadingEpisodes = viewModel.episodesLoading.value
+                            val downloads = viewModel.downloads.value
+                            val playbackPositions = viewModel.playbackPositions.value
 
-                        PodcastDetailScreen(
-                            podcast = podcast,
-                            episodes = episodes,
-                            downloads = downloads,
-                            playbackPositions = playbackPositions,
-                            isLoadingEpisodes = isLoadingEpisodes,
-                            isBuffering = viewModel.isBuffering.value,
-                            currentPlayingEpisodeId = viewModel.currentEpisode.value?.id,
-                            onEpisodeClick = { episode ->
-                                viewModel.playEpisode(episode)
-                            },
-                            onDownloadClick = { episode ->
-                                viewModel.downloadEpisode(episode)
-                            },
-                            onDeleteClick = { episode ->
-                                viewModel.deleteEpisode(episode)
-                            },
-                            onPauseClick = { episode ->
-                                viewModel.pauseDownload(episode.id)
-                            },
-                            onCancelClick = { episode ->
-                                viewModel.cancelDownload(episode.id)
-                            },
-                            onResumeClick = { episode ->
-                                viewModel.resumeDownload(episode.id)
-                            },
-                            onRefreshClick = {
-                                viewModel.refreshPodcastEpisodes(podcast.id)
-                            }
-                        )
+                            PodcastDetailScreen(
+                                podcast = podcast,
+                                episodes = episodes,
+                                downloads = downloads,
+                                playbackPositions = playbackPositions,
+                                isLoadingEpisodes = isLoadingEpisodes,
+                                isBuffering = viewModel.isBuffering.value,
+                                currentPlayingEpisodeId = viewModel.currentEpisode.value?.id,
+                                onEpisodeClick = { episode ->
+                                    viewModel.playEpisode(episode)
+                                },
+                                onDownloadClick = { episode ->
+                                    viewModel.downloadEpisode(episode)
+                                },
+                                onDeleteClick = { episode ->
+                                    viewModel.deleteEpisode(episode)
+                                },
+                                onPauseClick = { episode ->
+                                    viewModel.pauseDownload(episode.id)
+                                },
+                                onCancelClick = { episode ->
+                                    viewModel.cancelDownload(episode.id)
+                                },
+                                onResumeClick = { episode ->
+                                    viewModel.resumeDownload(episode.id)
+                                },
+                                onRefreshClick = {
+                                    viewModel.refreshPodcastEpisodes(podcast.id)
+                                }
+                            )
+                        }
                     }
                     composable("downloads") {
                         val downloads = viewModel.downloads.value.sortedByDescending { (it.episode.publishDate?.toLongOrNull() ?: 0L) }

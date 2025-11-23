@@ -110,6 +110,7 @@ fun DownloadsScreen(
                     playbackPosition = playbackPosition,
                     isCurrentlyPlaying = isCurrentlyPlaying,
                     isBuffering = isBuffering && isCurrentlyPlaying,
+                    showPodcastName = true,
                     onClick = { onEpisodeClick(download.episode) },
                     onDeleteClick = { onDeleteClick(download.episode) },
                     onPauseClick = { onPauseClick(download.episode) },

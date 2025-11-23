@@ -4,19 +4,19 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.calmcast.podcast.api.TaddyApiService
+import com.calmcast.podcast.api.ItunesApiService
 import com.calmcast.podcast.data.PodcastDao
+import com.calmcast.podcast.data.PodcastRepository
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
 import com.calmcast.podcast.data.download.AndroidDownloadManager
 import com.calmcast.podcast.data.download.DownloadDao
-import com.calmcast.podcast.data.toEpisode
+import kotlinx.coroutines.flow.first
 
 class NewEpisodeWorker(
     appContext: Context,
     workerParams: WorkerParameters,
     private val subscriptionManager: SubscriptionManager,
-    private val taddyApiService: TaddyApiService,
     private val settingsManager: SettingsManager,
     private val downloadDao: DownloadDao,
     private val podcastDao: PodcastDao,
@@ -32,6 +32,13 @@ class NewEpisodeWorker(
         }
 
         return try {
+            val repository = PodcastRepository(
+                ItunesApiService(),
+                subscriptionManager,
+                podcastDao,
+                null
+            )
+            
             val subscriptions = subscriptionManager.getSubscriptions()
             if (subscriptions.isEmpty()) {
                 Log.d("NewEpisodeWorker", "No subscriptions to check.")
@@ -41,38 +48,38 @@ class NewEpisodeWorker(
 
             subscriptions.forEach { podcastWithEpisodes ->
                 val podcast = podcastWithEpisodes.podcast
-                val result = taddyApiService.getPodcastDetails(podcast.id)
-                result.onSuccess { podcastDetailsResponse ->
-                    val latestEpisode = podcastDetailsResponse.podcast?.episodes?.maxByOrNull {
-                        it.publishDate
-                    }
-
-                    if (latestEpisode != null) {
-                        val download = downloadDao.getByEpisodeId(latestEpisode.id)
-                        when {
-                            download == null -> {
-                                // No record - never attempted - auto-download
-                                Log.d("NewEpisodeWorker", "Downloading new episode for ${podcast.title}: ${latestEpisode.title}")
-                                downloadManager.startDownload(latestEpisode.toEpisode(podcast.id, podcast.title))
-                            }
-                            download.status.name == "DELETED" -> {
-                                // User deleted it - don't auto-download again
-                                Log.d("NewEpisodeWorker", "Skipping DELETED episode for ${podcast.title}: ${latestEpisode.title}")
-                            }
-                            else -> {
-                                // Other status (DOWNLOADING, DOWNLOADED, FAILED, PAUSED, CANCELED)
-                                Log.d("NewEpisodeWorker", "Latest episode for ${podcast.title} already processed (status: ${download.status}).")
+                try {
+                    val podcastDetailsResult = repository.getPodcastDetails(podcast.id).first()
+                    podcastDetailsResult.onSuccess { podcastDetails ->
+                        if (podcastDetails != null) {
+                            val latestEpisode = podcastDetails.episodes.maxByOrNull { it.publishDate }
+                            
+                            if (latestEpisode != null) {
+                                val download = downloadDao.getByEpisodeId(latestEpisode.id)
+                                when {
+                                    download == null -> {
+                                        Log.d("NewEpisodeWorker", "Downloading new episode for ${podcast.title}: ${latestEpisode.title}")
+                                        downloadManager.startDownload(latestEpisode)
+                                    }
+                                    download.status.name == "DELETED" -> {
+                                        Log.d("NewEpisodeWorker", "Skipping DELETED episode for ${podcast.title}: ${latestEpisode.title}")
+                                    }
+                                    else -> {
+                                        Log.d("NewEpisodeWorker", "Latest episode for ${podcast.title} already processed (status: ${download.status}).")
+                                    }
+                                }
+                            } else {
+                                Log.d("NewEpisodeWorker", "No episodes found for ${podcast.title}")
                             }
                         }
-                    } else {
-                        Log.d("NewEpisodeWorker", "No episodes found for ${podcast.title}")
+                    }.onFailure {
+                        Log.e("NewEpisodeWorker", "Error fetching details for ${podcast.title}", it)
                     }
-                }.onFailure {
-                    Log.e("NewEpisodeWorker", "Error fetching details for ${podcast.title}", it)
+                } catch (e: Exception) {
+                    Log.e("NewEpisodeWorker", "Error fetching details for ${podcast.title}", e)
                 }
             }
 
-            // Record the successful refresh timestamp
             recordRefreshTimestamp()
             Result.success()
         } catch (e: Exception) {
