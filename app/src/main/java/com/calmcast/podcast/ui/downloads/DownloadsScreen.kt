@@ -29,25 +29,20 @@ fun DownloadsScreen(
     onDeleteClick: (com.calmcast.podcast.data.Episode) -> Unit,
     onPauseClick: (com.calmcast.podcast.data.Episode) -> Unit = {},
     onCancelClick: (com.calmcast.podcast.data.Episode) -> Unit = {},
-    onResumeClick: (com.calmcast.podcast.data.Episode) -> Unit = {}
+    onResumeClick: (com.calmcast.podcast.data.Episode) -> Unit = {},
+    removeDividers: Boolean = false
 ) {
     val hasError = remember { mutableStateOf(false) }
-    
-    // Validate downloads and handle errors gracefully
-    // Filter out DELETED downloads from display
+
     val validDownloads = remember(downloads) {
         try {
             downloads.filter { download ->
                 try {
-                    // Don't show DELETED downloads in UI
-                    if (download.status?.name == "DELETED") return@filter false
-                    
-                    // Ensure all required episode fields are present and valid
-                    download.episode?.let { episode ->
-                        episode.id?.isNotBlank() == true && 
-                        episode.title?.isNotBlank() == true && 
-                        episode.audioUrl?.isNotBlank() == true
-                    } ?: false
+                    if (download.status.name == "DELETED") return@filter false
+
+                    download.episode.let { episode ->
+                        episode.id.isNotBlank() && episode.title.isNotBlank() && episode.audioUrl.isNotBlank()
+                    }
                 } catch (e: Exception) {
                     hasError.value = true
                     false
@@ -115,7 +110,8 @@ fun DownloadsScreen(
                     onDeleteClick = { onDeleteClick(download.episode) },
                     onPauseClick = { onPauseClick(download.episode) },
                     onCancelClick = { onCancelClick(download.episode) },
-                    onResumeClick = { onResumeClick(download.episode) }
+                    onResumeClick = { onResumeClick(download.episode) },
+                    removeDividers = removeDividers
                 )
             }
         }

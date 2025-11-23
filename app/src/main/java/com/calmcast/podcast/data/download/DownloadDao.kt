@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DownloadDao {
-    @Query("SELECT * FROM downloads")
+    @Query("SELECT * FROM downloads ORDER BY episode_id ASC")
     fun getAll(): Flow<List<Download>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -38,7 +38,8 @@ fun SearchScreen(
     searchResults: List<Podcast>,
     onPodcastClick: (Podcast) -> Unit,
     isFollowed: (String) -> Boolean,
-    onFollowClick: (Podcast) -> Unit
+    onFollowClick: (Podcast) -> Unit,
+    removeDividers: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -63,7 +64,8 @@ fun SearchScreen(
                         isFollowed = isFollowed(podcast.id),
                         onFollowClick = { onFollowClick(podcast) },
                         onClick = { onPodcastClick(podcast) },
-                        showDivider = searchResults.last() != podcast
+                        showDivider = searchResults.last() != podcast,
+                        removeDividers = removeDividers
                     )
                 }
             }
@@ -77,7 +79,8 @@ fun SearchResultCard(
     isFollowed: Boolean,
     onFollowClick: () -> Unit,
     onClick: () -> Unit,
-    showDivider: Boolean
+    showDivider: Boolean,
+    removeDividers: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -133,7 +136,11 @@ fun SearchResultCard(
             }
 
             if (showDivider) {
-                HorizontalDividerMMD(thickness = 1.dp)
+                if (removeDividers) {
+                    Spacer(modifier = Modifier.height(1.dp))
+                } else {
+                    HorizontalDividerMMD(thickness = 1.dp)
+                }
             }
         }
     }

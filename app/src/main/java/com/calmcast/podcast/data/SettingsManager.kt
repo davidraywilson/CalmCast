@@ -22,6 +22,9 @@ class SettingsManager(context: Context) {
     private val _isKeepScreenOnEnabled = MutableStateFlow(isKeepScreenOnEnabledSync())
     val isKeepScreenOnEnabled = _isKeepScreenOnEnabled.asStateFlow()
 
+    private val _removeHorizontalDividers = MutableStateFlow(removeHorizontalDividersSync())
+    val removeHorizontalDividers = _removeHorizontalDividers.asStateFlow()
+
     fun setPictureInPictureEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_PIP, enabled).apply()
         _isPictureInPictureEnabled.value = enabled
@@ -56,6 +59,15 @@ class SettingsManager(context: Context) {
 
     fun isKeepScreenOnEnabledSync(): Boolean {
         return sharedPreferences.getBoolean(KEY_KEEP_SCREEN_ON, false)
+    }
+
+    fun setRemoveHorizontalDividers(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_REMOVE_DIVIDERS, enabled).apply()
+        _removeHorizontalDividers.value = enabled
+    }
+
+    fun removeHorizontalDividersSync(): Boolean {
+        return sharedPreferences.getBoolean(KEY_REMOVE_DIVIDERS, false)
     }
 
     /**
@@ -96,5 +108,6 @@ class SettingsManager(context: Context) {
         private const val KEY_AUTO_DOWNLOAD = "auto_download_enabled"
         private const val KEY_LAST_EPISODE_REFRESH = "last_episode_refresh_time"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on_enabled"
+        private const val KEY_REMOVE_DIVIDERS = "remove_horizontal_dividers"
     }
 }

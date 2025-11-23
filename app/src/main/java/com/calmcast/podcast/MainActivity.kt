@@ -84,14 +84,14 @@ import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     object Subscriptions : Screen("subscriptions", "Following", Icons.Outlined.StarBorder)
-    object Search : Screen("search", "Search", Icons.Outlined.Search)
+//    object Search : Screen("search", "Search", Icons.Outlined.Search)
     object Downloads : Screen("downloads", "Downloads", Icons.Outlined.Download)
     object Settings : Screen("settings", "Settings", Icons.Outlined.Settings)
 }
 
 val navItems = listOf(
     Screen.Subscriptions,
-    Screen.Search,
+//    Screen.Search,
     Screen.Downloads,
     Screen.Settings
 )
@@ -285,10 +285,17 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 }
                             },
                             actions = {
+                                if (currentDestination?.route == "subscriptions") {
+                                    IconButton(onClick = { navController.navigate("search") }) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Search,
+                                            contentDescription = "Search"
+                                        )
+                                    }
+                                }
                                 if (currentDestination?.route?.startsWith("detail/") == true) {
                                     val podcast = viewModel.currentPodcastDetails.value?.podcast
                                     if (podcast != null) {
-                                        // Follow/Unfollow button
                                         val isFollowed = viewModel.isSubscribed(podcast.id)
                                         IconButton(onClick = {
                                             if (isFollowed) {
@@ -375,7 +382,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             podcasts = viewModel.subscriptions.value,
                             onPodcastClick = { podcast ->
                                 navController.navigate("detail/${podcast.id}")
-                            }
+                            },
+                            removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }
                     composable("search") {
@@ -398,7 +406,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                         snackbarHostState.showSnackbar("Followed ${podcast.title}")
                                     }
                                 }
-                            }
+                            },
+                            removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }
                     composable("detail/{podcastId}") { backStackEntry ->
@@ -457,7 +466,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 },
                                 onRefreshClick = {
                                     viewModel.refreshPodcastEpisodes(podcast.id)
-                                }
+                                },
+                                removeDividers = viewModel.removeHorizontalDividers.value
                             )
                         }
                     }
@@ -483,7 +493,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             },
                             onResumeClick = { episode ->
                                 viewModel.resumeDownload(episode.id)
-                            }
+                            },
+                            removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }
                     composable("settings") {
@@ -504,6 +515,10 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             isKeepScreenOnEnabled = viewModel.isKeepScreenOnEnabled.value,
                             onKeepScreenOnToggle = { enabled ->
                                 viewModel.setKeepScreenOnEnabled(enabled)
+                            },
+                            removeHorizontalDividers = viewModel.removeHorizontalDividers.value,
+                            onRemoveHorizontalDividersToggle = { enabled ->
+                                viewModel.setRemoveHorizontalDividers(enabled)
                             }
                         )
                     }

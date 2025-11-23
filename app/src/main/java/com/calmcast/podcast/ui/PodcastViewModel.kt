@@ -137,6 +137,9 @@ class PodcastViewModel(
     private val _isKeepScreenOnEnabled = mutableStateOf(false)
     val isKeepScreenOnEnabled: State<Boolean> = _isKeepScreenOnEnabled
 
+    private val _removeHorizontalDividers = mutableStateOf(false)
+    val removeHorizontalDividers: State<Boolean> = _removeHorizontalDividers
+
     private var searchJob: Job? = null
 
     init {
@@ -163,6 +166,7 @@ class PodcastViewModel(
         _skipSeconds.intValue = settingsManager.getSkipSecondsSync()
         _isAutoDownloadEnabled.value = settingsManager.isAutoDownloadEnabled()
         _isKeepScreenOnEnabled.value = settingsManager.isKeepScreenOnEnabledSync()
+        _removeHorizontalDividers.value = settingsManager.removeHorizontalDividersSync()
 
         viewModelScope.launch {
             settingsManager.isPictureInPictureEnabled.collect {
@@ -182,6 +186,11 @@ class PodcastViewModel(
         viewModelScope.launch {
             settingsManager.isKeepScreenOnEnabled.collect {
                 _isKeepScreenOnEnabled.value = it
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.removeHorizontalDividers.collect {
+                _removeHorizontalDividers.value = it
             }
         }
     }
@@ -557,6 +566,10 @@ class PodcastViewModel(
 
     fun setKeepScreenOnEnabled(enabled: Boolean) {
         settingsManager.setKeepScreenOnEnabled(enabled)
+    }
+
+    fun setRemoveHorizontalDividers(enabled: Boolean) {
+        settingsManager.setRemoveHorizontalDividers(enabled)
     }
 
     private fun registerPlaybackServiceErrorCallback() {

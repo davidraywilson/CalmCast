@@ -19,7 +19,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -39,6 +38,7 @@ import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.data.download.DownloadStatus
 import com.calmcast.podcast.ui.common.HtmlText
 import com.calmcast.podcast.utils.DateTimeFormatter
+import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
 import com.mudita.mmd.components.progress_indicator.LinearProgressIndicatorMMD
@@ -58,7 +58,8 @@ fun PodcastDetailScreen(
     onPauseClick: (Episode) -> Unit = {},
     onCancelClick: (Episode) -> Unit = {},
     onResumeClick: (Episode) -> Unit = {},
-    onRefreshClick: () -> Unit = {}
+    onRefreshClick: () -> Unit = {},
+    removeDividers: Boolean = false
 ) {
     if (isLoadingEpisodes) {
         Box(
@@ -108,7 +109,7 @@ fun PodcastDetailScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                HorizontalDivider(thickness = 3.dp)
+                HorizontalDividerMMD(thickness = 3.dp)
             }
 
             if (episodes.isEmpty()) {
@@ -139,7 +140,8 @@ fun PodcastDetailScreen(
                         onDeleteClick = { onDeleteClick(episode) },
                         onPauseClick = { onPauseClick(episode) },
                         onCancelClick = { onCancelClick(episode) },
-                        onResumeClick = { onResumeClick(episode) }
+                        onResumeClick = { onResumeClick(episode) },
+                        removeDividers = removeDividers
                     )
                 }
             }
@@ -161,7 +163,8 @@ fun EpisodeItem(
     onDeleteClick: () -> Unit = {},
     onPauseClick: () -> Unit = {},
     onCancelClick: () -> Unit = {},
-    onResumeClick: () -> Unit = {}
+    onResumeClick: () -> Unit = {},
+    removeDividers: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -222,6 +225,20 @@ fun EpisodeItem(
                     }
                     DownloadStatus.PAUSED -> {
                         // Cancel button will be rendered inline with progress bar
+                    }
+                    DownloadStatus.FAILED, DownloadStatus.CANCELED -> {
+                        // For failed or canceled downloads, show delete icon to remove them
+                        IconButton(
+                            onClick = onDeleteClick,
+                            modifier = Modifier
+                                .size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = "Delete",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                     else -> {
                         IconButton(
@@ -317,10 +334,14 @@ fun EpisodeItem(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (!isLastItem) {
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        modifier = Modifier.padding(vertical = 0.dp)
-                    )
+                    if (removeDividers) {
+                        Spacer(modifier = Modifier.height(1.dp))
+                    } else {
+                        HorizontalDividerMMD(
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(vertical = 0.dp)
+                        )
+                    }
                 }
             }
         }

@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import com.calmcast.podcast.data.SettingsManager
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 
 @Composable
 fun SettingsScreen(
@@ -29,7 +31,9 @@ fun SettingsScreen(
     skipSeconds: Int,
     onSkipSecondsChange: (Int) -> Unit,
     isKeepScreenOnEnabled: Boolean = false,
-    onKeepScreenOnToggle: (Boolean) -> Unit = {}
+    onKeepScreenOnToggle: (Boolean) -> Unit = {},
+    removeHorizontalDividers: Boolean = false,
+    onRemoveHorizontalDividersToggle: (Boolean) -> Unit = {}
 ) {
     val skipOptions = listOf(5, 10, 15, 30)
 
@@ -50,10 +54,14 @@ fun SettingsScreen(
                     onCheckedChange = onPictureInPictureToggle
                 )
             }
-            HorizontalDividerMMD(
-                modifier = Modifier.padding(start = 16.dp),
-                thickness = 1.dp
-            )
+            if (removeHorizontalDividers) {
+                Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
+            } else {
+                HorizontalDividerMMD(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 1.dp
+                )
+            }
         }
         item {
             Row(
@@ -68,10 +76,14 @@ fun SettingsScreen(
                     onCheckedChange = onAutoDownloadToggle
                 )
             }
-            HorizontalDividerMMD(
-                modifier = Modifier.padding(start = 16.dp),
-                thickness = 1.dp
-            )
+            if (removeHorizontalDividers) {
+                Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
+            } else {
+                HorizontalDividerMMD(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 1.dp
+                )
+            }
         }
         item {
             Row(
@@ -86,10 +98,34 @@ fun SettingsScreen(
                     onCheckedChange = onKeepScreenOnToggle
                 )
             }
-            HorizontalDividerMMD(
-                modifier = Modifier.padding(start = 16.dp),
-                thickness = 1.dp
-            )
+            if (removeHorizontalDividers) {
+                Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
+            } else {
+                HorizontalDividerMMD(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 1.dp
+                )
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Remove horizontal dividers", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = removeHorizontalDividers,
+                    onCheckedChange = onRemoveHorizontalDividersToggle
+                )
+            }
+            if (!removeHorizontalDividers) {
+                HorizontalDividerMMD(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 1.dp
+                )
+            }
         }
         item {
             Column(
