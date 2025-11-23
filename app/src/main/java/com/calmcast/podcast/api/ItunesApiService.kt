@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
@@ -15,6 +16,13 @@ import java.util.concurrent.TimeUnit
 
 class ItunesApiService {
     private val client: OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(Interceptor { chain ->
+            val originalRequest = chain.request()
+            val requestWithUserAgent = originalRequest.newBuilder()
+                .header("User-Agent", "CalmCast/1.0 (Android; Podcast Player)")
+                .build()
+            chain.proceed(requestWithUserAgent)
+        })
         .addInterceptor(HttpLoggingInterceptor { message ->
             Log.d("OkHttp", message)
         }.apply {
@@ -118,6 +126,7 @@ class ItunesApiService {
                     when (response.code) {
                         404 -> throw FeedNotFoundException("Podcast feed not found (404)")
                         410 -> throw FeedGoneException("Podcast feed is no longer available (410)")
+                        403 -> throw FeedGoneException("Podcast feed access denied (403)")
                         else -> throw Exception("Failed to fetch RSS feed: ${response.code}")
                     }
                 }

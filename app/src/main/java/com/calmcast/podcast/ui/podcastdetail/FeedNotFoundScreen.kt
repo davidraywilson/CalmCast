@@ -44,6 +44,7 @@ fun FeedNotFoundScreen(
                 text = when (errorCode) {
                     404 -> "Podcast Feed Not Found"
                     410 -> "Podcast Feed Gone"
+                    403 -> "Feed Access Denied"
                     else -> "Error"
                 },
                 fontSize = 20.sp,
@@ -57,6 +58,7 @@ fun FeedNotFoundScreen(
                 text = when (errorCode) {
                     404 -> "The podcast feed is no longer available at this location."
                     410 -> "The podcast feed has been permanently removed."
+                    403 -> "The server denied access to this feed (403)."
                     else -> "Unable to load this podcast."
                 },
                 fontSize = 16.sp,

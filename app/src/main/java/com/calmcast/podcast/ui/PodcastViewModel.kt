@@ -383,7 +383,12 @@ class PodcastViewModel(
                     Log.e(TAG, "Error fetching podcast details", exception)
                     when (exception) {
                         is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
-                        is FeedGoneException -> _detailError.value = 410 to "Podcast feed is no longer available"
+                        is FeedGoneException -> {
+                            // Check if it's a 403 error
+                            val errorCode = if (exception.message?.contains("403") == true) 403 else 410
+                            val message = exception.message ?: "Podcast feed unavailable"
+                            _detailError.value = errorCode to message
+                        }
                         else -> _errorMessage.value = exception.message
                     }
                     _episodesLoading.value = false
@@ -403,10 +408,8 @@ class PodcastViewModel(
                 repository.getPodcastDetails(podcastId).collect { result ->
                     result.onSuccess { podcastWithEpisodes ->
                         if (podcastWithEpisodes != null) {
-                            // Fetch and display updated details
                             fetchPodcastDetails(podcastId)
                             
-                            // Trigger auto-download check for new episodes
                             if (settingsManager.isAutoDownloadEnabled()) {
                                 checkForNewEpisodes()
                             }
