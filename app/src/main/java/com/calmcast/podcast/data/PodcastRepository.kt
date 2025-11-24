@@ -59,11 +59,12 @@ class PodcastRepository(
             val result = apiService.getPodcastDetails(podcastId = podcastId, feedUrl = podcast.feedUrl)
             result.onSuccess { response ->
                 Log.d("PodcastRepository", "Got ${response.episodes.size} episodes from API")
-                // Update podcast with RSS description if available
-                if (response.description.isNotEmpty()) {
-                    val updatedPodcast = podcast.copy(description = response.description)
-                    podcastDao.insertPodcast(updatedPodcast)
-                }
+                // Update podcast with RSS description and episode count
+                val updatedPodcast = podcast.copy(
+                    description = if (response.description.isNotEmpty()) response.description else podcast.description,
+                    episodeCount = response.episodes.size
+                )
+                podcastDao.insertPodcast(updatedPodcast)
                 val episodes = response.episodes.map { episodeResult ->
                     Episode(
                         id = episodeResult.audioUrl.hashCode().toString(),

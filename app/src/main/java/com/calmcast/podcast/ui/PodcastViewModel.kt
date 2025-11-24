@@ -141,6 +141,8 @@ class PodcastViewModel(
     val removeHorizontalDividers: State<Boolean> = _removeHorizontalDividers
 
     private var searchJob: Job? = null
+    private var lastSaveTime: Long = 0L
+    private val SAVE_INTERVAL_MS = 10000L // 10 seconds
 
     init {
         cleanupInvalidDownloads()
@@ -241,9 +243,11 @@ class PodcastViewModel(
                 _currentPosition.longValue = mediaController?.currentPosition ?: 0L
                 _duration.longValue = mediaController?.duration ?: 0L
 
-                // Save playback position every 10 seconds
+                // Save playback position every 10 seconds using wall-clock time
                 if (_isPlaying.value && _currentEpisode.value != null && _currentPosition.longValue > 0) {
-                    if (_currentPosition.longValue % 10000 < 100) { // Approximately every 10 seconds
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastSaveTime >= SAVE_INTERVAL_MS) {
+                        lastSaveTime = currentTime
                         repository.savePlaybackPosition(
                             episodeId = _currentEpisode.value!!.id,
                             position = _currentPosition.longValue
@@ -488,7 +492,7 @@ class PodcastViewModel(
             mediaController?.play()
 
             _currentEpisode.value = episodeToPlay
-            _showFullPlayer.value = false
+            _showFullPlayer.value = true
         }
     }
 
