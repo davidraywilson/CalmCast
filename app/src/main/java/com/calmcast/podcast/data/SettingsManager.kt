@@ -94,7 +94,7 @@ class SettingsManager(context: Context) {
     }
 
     fun getSleepTimerMinutesSync(): Int {
-        return sharedPreferences.getInt(KEY_SLEEP_TIMER_MINUTES, 0)
+        return sharedPreferences.getInt(KEY_SLEEP_TIMER_MINUTES, 30)
     }
 
     fun setSleepTimerActive(active: Boolean) {

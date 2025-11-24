@@ -119,7 +119,7 @@ fun SettingsScreen(
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Remove horizontal dividers", modifier = Modifier.weight(1f))
+                Text(text = "Hide dividers", modifier = Modifier.weight(1f))
                 Switch(
                     checked = removeHorizontalDividers,
                     onCheckedChange = onRemoveHorizontalDividersToggle

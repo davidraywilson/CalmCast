@@ -12,7 +12,7 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.SubdirectoryArrowRight
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockClock
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Bedtime
@@ -325,26 +325,21 @@ fun FullPlayerScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .weight(1f),
+                        .weight(1f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onKeepScreenOnToggle(!isKeepScreenOnEnabled)
+                        },
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Lock,
-                            contentDescription = "Allow screen off",
-                            modifier = Modifier.size(24.dp)
-                        )
-
-                        SwitchMMD(
-                            checked = isKeepScreenOnEnabled,
-                            onCheckedChange = { onKeepScreenOnToggle(it) }
-                        )
-
-                        Icon(
-                            imageVector = Icons.Outlined.LockClock,
-                            contentDescription = "Screen always on",
+                            imageVector = if (isKeepScreenOnEnabled) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
+                            contentDescription = if (isKeepScreenOnEnabled) "Screen always on - click to turn off" else "Screen can turn off - click to turn on",
                             modifier = Modifier.size(24.dp)
                         )
                     }
