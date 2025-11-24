@@ -12,6 +12,11 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
+sealed class PlaybackError {
+    data class NetworkError(val message: String) : PlaybackError()
+    data class GeneralError(val message: String) : PlaybackError()
+}
+
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
 

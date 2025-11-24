@@ -17,6 +17,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.calmcast.podcast.PlaybackService
+import com.calmcast.podcast.PlaybackError
 import com.calmcast.podcast.api.FeedGoneException
 import com.calmcast.podcast.api.FeedNotFoundException
 import com.calmcast.podcast.data.Episode
@@ -117,8 +118,8 @@ class PodcastViewModel(
     private val _showFullPlayer = mutableStateOf(false)
     val showFullPlayer: State<Boolean> = _showFullPlayer
 
-    private val _playbackError = mutableStateOf<PlaybackManager.PlaybackError?>(null)
-    val playbackError: State<PlaybackManager.PlaybackError?> = _playbackError
+    private val _playbackError = mutableStateOf<PlaybackError?>(null)
+    val playbackError: State<PlaybackError?> = _playbackError
 
     private var mediaController: MediaController? = null
     private lateinit var playerListener: Player.Listener
@@ -670,7 +671,7 @@ class PodcastViewModel(
                                 cause is java.net.SocketException
 
             if (isNetworkError) {
-                _playbackError.value = PlaybackManager.PlaybackError.NetworkError("No internet connection")
+                _playbackError.value = PlaybackError.NetworkError("No internet connection")
                 _isPlaying.value = false
                 _isBuffering.value = false
             }

@@ -188,6 +188,7 @@ fun FullPlayerScreen(
                     text = episode.podcastTitle,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
