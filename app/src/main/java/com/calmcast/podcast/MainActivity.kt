@@ -519,6 +519,14 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             removeHorizontalDividers = viewModel.removeHorizontalDividers.value,
                             onRemoveHorizontalDividersToggle = { enabled ->
                                 viewModel.setRemoveHorizontalDividers(enabled)
+                            },
+                            sleepTimerEnabled = viewModel.sleepTimerEnabled.value,
+                            onSleepTimerEnabledChange = { enabled ->
+                                viewModel.setSleepTimerEnabled(enabled)
+                            },
+                            sleepTimerMinutes = viewModel.sleepTimerMinutes.value,
+                            onSleepTimerMinutesChange = { minutes ->
+                                viewModel.setSleepTimerMinutes(minutes)
                             }
                         )
                     }
@@ -542,7 +550,11 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                     onSeek = { positionMs -> viewModel.seekTo(positionMs) },
                     skipSeconds = viewModel.skipSeconds.value,
                     isKeepScreenOnEnabled = viewModel.isKeepScreenOnEnabled.value,
-                    onKeepScreenOnToggle = { enabled -> viewModel.setKeepScreenOnEnabled(enabled) }
+                    onKeepScreenOnToggle = { enabled -> viewModel.setKeepScreenOnEnabled(enabled) },
+                    isSleepTimerActive = viewModel.isSleepTimerActive.value,
+                    sleepTimerRemainingSeconds = viewModel.sleepTimerRemainingSeconds.value,
+                    onStartSleepTimer = { viewModel.startSleepTimer() },
+                    onStopSleepTimer = { viewModel.stopSleepTimer() }
                 )
             }
         }

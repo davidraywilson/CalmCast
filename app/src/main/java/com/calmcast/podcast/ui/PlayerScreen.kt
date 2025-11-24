@@ -14,6 +14,10 @@ import androidx.compose.material.icons.outlined.SubdirectoryArrowRight
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockClock
 import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.BedroomParent
+import androidx.compose.material.icons.outlined.BedtimeOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +31,7 @@ import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.utils.DateTimeFormatter
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
+import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
 import com.mudita.mmd.components.slider.SliderMMD
 import com.mudita.mmd.components.switcher.SwitchMMD
@@ -111,7 +116,11 @@ fun FullPlayerScreen(
     onSeek: (Long) -> Unit,
     skipSeconds: Int,
     isKeepScreenOnEnabled: Boolean = false,
-    onKeepScreenOnToggle: (Boolean) -> Unit = {}
+    onKeepScreenOnToggle: (Boolean) -> Unit = {},
+    isSleepTimerActive: Boolean = false,
+    sleepTimerRemainingSeconds: Long = 0L,
+    onStartSleepTimer: () -> Unit = {},
+    onStopSleepTimer: () -> Unit = {}
 ) {
     if (episode == null) return
 
@@ -211,6 +220,14 @@ fun FullPlayerScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
+                    if (isSleepTimerActive) {
+                        Text(
+                            text = "Sleep: ${DateTimeFormatter.formatDuration(sleepTimerRemainingSeconds)}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
                     Text(
                         text = DateTimeFormatter.formatDuration(duration / 1000),
                         fontSize = 14.sp,
@@ -303,27 +320,58 @@ fun FullPlayerScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
-                modifier = Modifier
-                    .padding(horizontal = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Lock,
-                    contentDescription = "Allow screen off",
-                    modifier = Modifier.size(24.dp)
-                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lock,
+                            contentDescription = "Allow screen off",
+                            modifier = Modifier.size(24.dp)
+                        )
 
-                SwitchMMD(
-                    checked = isKeepScreenOnEnabled,
-                    onCheckedChange = { onKeepScreenOnToggle(it) }
-                )
+                        SwitchMMD(
+                            checked = isKeepScreenOnEnabled,
+                            onCheckedChange = { onKeepScreenOnToggle(it) }
+                        )
 
-                Icon(
-                    imageVector = Icons.Outlined.LockClock,
-                    contentDescription = "Screen always on",
-                    modifier = Modifier.size(24.dp)
-                )
+                        Icon(
+                            imageVector = Icons.Outlined.LockClock,
+                            contentDescription = "Screen always on",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (isSleepTimerActive) {
+                            onStopSleepTimer()
+                        } else {
+                            onStartSleepTimer()
+                        }
+                    }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = if (isSleepTimerActive) Icons.Outlined.Bedtime else Icons.Outlined.BedtimeOff,
+                            contentDescription = if (isSleepTimerActive) "Sleep timer active - click to turn off" else "Sleep timer off - click to turn on",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
         }
 

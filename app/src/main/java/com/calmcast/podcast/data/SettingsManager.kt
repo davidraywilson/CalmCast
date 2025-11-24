@@ -25,6 +25,15 @@ class SettingsManager(context: Context) {
     private val _removeHorizontalDividers = MutableStateFlow(removeHorizontalDividersSync())
     val removeHorizontalDividers = _removeHorizontalDividers.asStateFlow()
 
+    private val _sleepTimerEnabled = MutableStateFlow(isSleepTimerEnabledSync())
+    val sleepTimerEnabled = _sleepTimerEnabled.asStateFlow()
+
+    private val _sleepTimerMinutes = MutableStateFlow(getSleepTimerMinutesSync())
+    val sleepTimerMinutes = _sleepTimerMinutes.asStateFlow()
+
+    private val _isSleepTimerActive = MutableStateFlow(isSleepTimerActiveSync())
+    val isSleepTimerActive = _isSleepTimerActive.asStateFlow()
+
     fun setPictureInPictureEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_PIP, enabled).apply()
         _isPictureInPictureEnabled.value = enabled
@@ -70,6 +79,33 @@ class SettingsManager(context: Context) {
         return sharedPreferences.getBoolean(KEY_REMOVE_DIVIDERS, false)
     }
 
+    fun setSleepTimerEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_SLEEP_TIMER_ENABLED, enabled).apply()
+        _sleepTimerEnabled.value = enabled
+    }
+
+    fun isSleepTimerEnabledSync(): Boolean {
+        return sharedPreferences.getBoolean(KEY_SLEEP_TIMER_ENABLED, false)
+    }
+
+    fun setSleepTimerMinutes(minutes: Int) {
+        sharedPreferences.edit().putInt(KEY_SLEEP_TIMER_MINUTES, minutes).apply()
+        _sleepTimerMinutes.value = minutes
+    }
+
+    fun getSleepTimerMinutesSync(): Int {
+        return sharedPreferences.getInt(KEY_SLEEP_TIMER_MINUTES, 0)
+    }
+
+    fun setSleepTimerActive(active: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_SLEEP_TIMER_ACTIVE, active).apply()
+        _isSleepTimerActive.value = active
+    }
+
+    fun isSleepTimerActiveSync(): Boolean {
+        return sharedPreferences.getBoolean(KEY_SLEEP_TIMER_ACTIVE, false)
+    }
+
     /**
      * Set the timestamp of the last episode refresh
      * @param timestamp Milliseconds since epoch
@@ -109,5 +145,8 @@ class SettingsManager(context: Context) {
         private const val KEY_LAST_EPISODE_REFRESH = "last_episode_refresh_time"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on_enabled"
         private const val KEY_REMOVE_DIVIDERS = "remove_horizontal_dividers"
+        private const val KEY_SLEEP_TIMER_ENABLED = "sleep_timer_enabled"
+        private const val KEY_SLEEP_TIMER_MINUTES = "sleep_timer_minutes"
+        private const val KEY_SLEEP_TIMER_ACTIVE = "sleep_timer_active"
     }
 }

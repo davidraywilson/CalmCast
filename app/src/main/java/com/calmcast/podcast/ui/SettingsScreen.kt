@@ -33,9 +33,14 @@ fun SettingsScreen(
     isKeepScreenOnEnabled: Boolean = false,
     onKeepScreenOnToggle: (Boolean) -> Unit = {},
     removeHorizontalDividers: Boolean = false,
-    onRemoveHorizontalDividersToggle: (Boolean) -> Unit = {}
+    onRemoveHorizontalDividersToggle: (Boolean) -> Unit = {},
+    sleepTimerEnabled: Boolean = false,
+    onSleepTimerEnabledChange: (Boolean) -> Unit = {},
+    sleepTimerMinutes: Int = 0,
+    onSleepTimerMinutesChange: (Int) -> Unit = {}
 ) {
     val skipOptions = listOf(5, 10, 15, 30)
+    val sleepTimerOptions = listOf(5, 10, 15, 30, 45, 60)
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -149,6 +154,43 @@ fun SettingsScreen(
                     onClick = { onSkipSecondsChange(seconds) }
                 )
                 Text(text = "$seconds seconds", modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Sleep Timer", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = sleepTimerEnabled,
+                    onCheckedChange = onSleepTimerEnabledChange
+                )
+            }
+            if (!removeHorizontalDividers) {
+                HorizontalDividerMMD(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 1.dp
+                )
+            }
+        }
+        if (sleepTimerEnabled) {
+            items(sleepTimerOptions) { minutes ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSleepTimerMinutesChange(minutes) }
+                        .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
+                ) {
+                    RadioButton(
+                        selected = sleepTimerMinutes == minutes,
+                        onClick = { onSleepTimerMinutesChange(minutes) }
+                    )
+                    Text(text = if (minutes == 60) "1 hour" else "$minutes minutes", modifier = Modifier.padding(start = 8.dp))
+                }
             }
         }
         }

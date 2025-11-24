@@ -140,7 +140,20 @@ class PodcastViewModel(
     private val _removeHorizontalDividers = mutableStateOf(false)
     val removeHorizontalDividers: State<Boolean> = _removeHorizontalDividers
 
+    private val _sleepTimerEnabled = mutableStateOf(false)
+    val sleepTimerEnabled: State<Boolean> = _sleepTimerEnabled
+
+    private val _sleepTimerMinutes = mutableIntStateOf(0)
+    val sleepTimerMinutes: State<Int> = _sleepTimerMinutes
+
+    private val _isSleepTimerActive = mutableStateOf(false)
+    val isSleepTimerActive: State<Boolean> = _isSleepTimerActive
+
+    private val _sleepTimerRemainingSeconds = mutableLongStateOf(0L)
+    val sleepTimerRemainingSeconds: State<Long> = _sleepTimerRemainingSeconds
+
     private var searchJob: Job? = null
+    private var sleepTimerJob: Job? = null
     private var lastSaveTime: Long = 0L
     private val SAVE_INTERVAL_MS = 10000L // 10 seconds
 
@@ -169,6 +182,9 @@ class PodcastViewModel(
         _isAutoDownloadEnabled.value = settingsManager.isAutoDownloadEnabled()
         _isKeepScreenOnEnabled.value = settingsManager.isKeepScreenOnEnabledSync()
         _removeHorizontalDividers.value = settingsManager.removeHorizontalDividersSync()
+        _sleepTimerEnabled.value = settingsManager.isSleepTimerEnabledSync()
+        _sleepTimerMinutes.intValue = settingsManager.getSleepTimerMinutesSync()
+        _isSleepTimerActive.value = settingsManager.isSleepTimerActiveSync()
 
         viewModelScope.launch {
             settingsManager.isPictureInPictureEnabled.collect {
@@ -193,6 +209,27 @@ class PodcastViewModel(
         viewModelScope.launch {
             settingsManager.removeHorizontalDividers.collect {
                 _removeHorizontalDividers.value = it
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.sleepTimerEnabled.collect {
+                _sleepTimerEnabled.value = it
+                if (!it) {
+                    stopSleepTimer()
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.sleepTimerMinutes.collect {
+                _sleepTimerMinutes.intValue = it
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.isSleepTimerActive.collect {
+                _isSleepTimerActive.value = it
+                if (!it) {
+                    stopSleepTimer()
+                }
             }
         }
     }
@@ -493,6 +530,11 @@ class PodcastViewModel(
 
             _currentEpisode.value = episodeToPlay
             _showFullPlayer.value = true
+            
+            // Auto-start sleep timer if enabled
+            if (settingsManager.isSleepTimerEnabledSync() && settingsManager.getSleepTimerMinutesSync() > 0) {
+                startSleepTimer()
+            }
         }
     }
 
@@ -576,6 +618,51 @@ class PodcastViewModel(
         settingsManager.setRemoveHorizontalDividers(enabled)
     }
 
+    fun setSleepTimerEnabled(enabled: Boolean) {
+        settingsManager.setSleepTimerEnabled(enabled)
+    }
+
+    fun setSleepTimerMinutes(minutes: Int) {
+        settingsManager.setSleepTimerMinutes(minutes)
+    }
+
+    fun startSleepTimer() {
+        if (_sleepTimerMinutes.intValue <= 0) return
+        
+        _isSleepTimerActive.value = true
+        settingsManager.setSleepTimerActive(true)
+        _sleepTimerRemainingSeconds.longValue = (_sleepTimerMinutes.intValue * 60).toLong()
+        
+        sleepTimerJob?.cancel()
+        sleepTimerJob = viewModelScope.launch {
+            while (_sleepTimerRemainingSeconds.longValue > 0) {
+                delay(1000)
+                _sleepTimerRemainingSeconds.longValue -= 1
+            }
+            
+            if (_sleepTimerRemainingSeconds.longValue <= 0) {
+                mediaController?.pause()
+                _isSleepTimerActive.value = false
+                settingsManager.setSleepTimerActive(false)
+                _sleepTimerRemainingSeconds.longValue = 0L
+            }
+        }
+    }
+
+    fun stopSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _isSleepTimerActive.value = false
+        settingsManager.setSleepTimerActive(false)
+        _sleepTimerRemainingSeconds.longValue = 0L
+    }
+
+    fun resetSleepTimer() {
+        if (_sleepTimerEnabled.value && _sleepTimerMinutes.intValue > 0 && _isSleepTimerActive.value) {
+            startSleepTimer()
+        }
+    }
+
     private fun registerPlaybackServiceErrorCallback() {
         PlaybackService.setErrorCallback { error ->
             val cause = error.cause
@@ -594,6 +681,7 @@ class PodcastViewModel(
         super.onCleared()
         mediaController?.removeListener(playerListener)
         PlaybackService.setErrorCallback(null)
+        sleepTimerJob?.cancel()
         viewModelScope.launch {
             if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
                 repository.savePlaybackPosition(
