@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "95a2c17984b0b3edffc3b5f780ebeb56",
+    "identityHash": "b08903b274d04cd6df04124b0d9941fb",
     "entities": [
       {
         "tableName": "downloads",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `status` TEXT NOT NULL, `progress` REAL NOT NULL, `downloadUri` TEXT, `downloadedBytes` INTEGER NOT NULL, `totalBytes` INTEGER NOT NULL, `episode_id` TEXT NOT NULL, `episode_podcastId` TEXT NOT NULL, `episode_podcastTitle` TEXT NOT NULL, `episode_title` TEXT NOT NULL, `episode_publishDate` TEXT NOT NULL, `episode_duration` TEXT NOT NULL, `episode_audioUrl` TEXT NOT NULL, `episode_downloadedPath` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `status` TEXT NOT NULL, `progress` REAL NOT NULL, `downloadUri` TEXT, `downloadedBytes` INTEGER NOT NULL, `totalBytes` INTEGER NOT NULL, `episode_id` TEXT NOT NULL, `episode_podcastId` TEXT NOT NULL, `episode_podcastTitle` TEXT NOT NULL, `episode_title` TEXT NOT NULL, `episode_description` TEXT NOT NULL, `episode_publishDate` TEXT NOT NULL, `episode_duration` TEXT NOT NULL, `episode_audioUrl` TEXT NOT NULL, `episode_downloadedPath` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -69,6 +69,12 @@
             "notNull": true
           },
           {
+            "fieldPath": "episode.description",
+            "columnName": "episode_description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
             "fieldPath": "episode.publishDate",
             "columnName": "episode_publishDate",
             "affinity": "TEXT",
@@ -106,7 +112,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '95a2c17984b0b3edffc3b5f780ebeb56')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b08903b274d04cd6df04124b0d9941fb')"
     ]
   }
 }

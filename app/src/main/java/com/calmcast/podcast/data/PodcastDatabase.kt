@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.data.download.DownloadDao
 
-@Database(entities = [com.calmcast.podcast.data.Podcast::class, com.calmcast.podcast.data.Episode::class, com.calmcast.podcast.data.PlaybackPosition::class, Download::class], version = 6)
+@Database(entities = [com.calmcast.podcast.data.Podcast::class, com.calmcast.podcast.data.Episode::class, com.calmcast.podcast.data.PlaybackPosition::class, Download::class], version = 7)
 @TypeConverters(com.calmcast.podcast.data.DateConverter::class)
 abstract class PodcastDatabase : RoomDatabase() {
 

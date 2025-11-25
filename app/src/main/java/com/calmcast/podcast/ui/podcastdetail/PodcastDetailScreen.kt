@@ -1,6 +1,8 @@
 package com.calmcast.podcast.ui.podcastdetail
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,6 +21,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -193,6 +198,7 @@ fun PodcastDetailScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EpisodeItem(
     episode: Episode,
@@ -210,6 +216,34 @@ fun EpisodeItem(
     onResumeClick: () -> Unit = {},
     removeDividers: Boolean = false
 ) {
+    val showDescriptionModal = remember { mutableStateOf(false) }
+
+    if (showDescriptionModal.value && episode.description.isNotEmpty()) {
+        ModalBottomSheetMMD(
+            onDismissRequest = { showDescriptionModal.value = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp)
+            ) {
+                Text(
+                    text = episode.title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 16.dp, top = 16.dp)
+                )
+                HtmlText(
+                    html = episode.description
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .padding(start = 0.dp, end = 0.dp, top = 16.dp, bottom = 0.dp)
@@ -310,8 +344,21 @@ fun EpisodeItem(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
+                    if (episode.description.isNotEmpty()) {
+                        IconButton(
+                            onClick = { showDescriptionModal.value = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = "View description",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 }
                 if (showPodcastName) {
                     Spacer(modifier = Modifier.height(4.dp))

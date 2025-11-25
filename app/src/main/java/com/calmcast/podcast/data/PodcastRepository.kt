@@ -71,6 +71,7 @@ class PodcastRepository(
                         podcastId = podcast.id,
                         podcastTitle = podcast.title,
                         title = episodeResult.title,
+                        description = episodeResult.description,
                         publishDate = episodeResult.pubDate,
                         duration = episodeResult.duration,
                         audioUrl = episodeResult.audioUrl
