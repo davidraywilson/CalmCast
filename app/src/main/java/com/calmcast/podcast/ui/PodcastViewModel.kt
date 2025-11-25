@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -124,6 +125,7 @@ class PodcastViewModel(
     private var mediaController: MediaController? = null
     private lateinit var playerListener: Player.Listener
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var positionUpdateJob: Job? = null
 
     // Settings
     private val _isPictureInPictureEnabled = mutableStateOf(false)
@@ -238,6 +240,11 @@ class PodcastViewModel(
     private inner class PlayerListener : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
+            if (isPlaying) {
+                startPositionUpdates()
+            } else {
+                stopPositionUpdates()
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -245,6 +252,7 @@ class PodcastViewModel(
             _isBuffering.value = playbackState == Player.STATE_BUFFERING
             if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
                 _currentEpisode.value = null
+                stopPositionUpdates()
             }
         }
 
@@ -265,7 +273,9 @@ class PodcastViewModel(
         controllerFuture?.addListener({
             mediaController = controllerFuture?.get()
             mediaController?.addListener(playerListener)
-            setupPlaybackStateObserver()
+            // Initial state sync
+            _currentPosition.longValue = mediaController?.currentPosition ?: 0L
+            _duration.longValue = mediaController?.duration ?: 0L
         }, MoreExecutors.directExecutor())
     }
 
@@ -276,25 +286,45 @@ class PodcastViewModel(
     }
 
     private fun setupPlaybackStateObserver() {
-        viewModelScope.launch {
-            while (true) {
+        // No-op: position updates are now tied to playback via start/stopPositionUpdates()
+    }
+
+    private fun startPositionUpdates() {
+        positionUpdateJob?.cancel()
+        positionUpdateJob = viewModelScope.launch {
+            while (_isPlaying.value) {
                 _currentPosition.longValue = mediaController?.currentPosition ?: 0L
                 _duration.longValue = mediaController?.duration ?: 0L
 
-                // Save playback position every 10 seconds using wall-clock time
-                if (_isPlaying.value && _currentEpisode.value != null && _currentPosition.longValue > 0) {
+                // Save playback position to database every 10 seconds using wall-clock time
+                if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastSaveTime >= SAVE_INTERVAL_MS) {
                         lastSaveTime = currentTime
+                        val episodeId = _currentEpisode.value!!.id
+                        val position = _currentPosition.longValue
+                        // Save to database
                         repository.savePlaybackPosition(
-                            episodeId = _currentEpisode.value!!.id,
-                            position = _currentPosition.longValue
+                            episodeId = episodeId,
+                            position = position
                         )
+                        // Update UI state only when database is saved
+                        val updatedPosition = PlaybackPosition(
+                            episodeId = episodeId,
+                            position = position,
+                            lastPlayed = currentTime
+                        )
+                        _playbackPositions.value = _playbackPositions.value + (episodeId to updatedPosition)
                     }
                 }
-                delay(100)
+                delay(500)
             }
         }
+    }
+
+    private fun stopPositionUpdates() {
+        positionUpdateJob?.cancel()
+        positionUpdateJob = null
     }
 
     private fun loadInitialData() {
@@ -427,7 +457,8 @@ class PodcastViewModel(
                     podcastWithEpisodes?.let { details ->
                         val episodeIds = details.episodes.map { it.id }
                         val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
-                        _playbackPositions.value = positions.associateBy { it.episodeId }
+                        // Merge new positions with existing cache instead of replacing
+                        _playbackPositions.value = _playbackPositions.value + positions.associateBy { it.episodeId }
                     }
                     _episodesLoading.value = false
                 }.onFailure { exception ->
@@ -479,6 +510,14 @@ class PodcastViewModel(
 
     fun playEpisode(episode: Episode) {
         viewModelScope.launch {
+            // Save position of currently playing episode before switching
+            if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
+                repository.savePlaybackPosition(
+                    episodeId = _currentEpisode.value!!.id,
+                    position = _currentPosition.longValue
+                )
+            }
+            
             Log.d(TAG, "playEpisode() called for: ${episode.title}")
             var episodeToPlay = episode
             val download = _downloads.value.find { it.episode.id == episode.id }
@@ -545,20 +584,46 @@ class PodcastViewModel(
         } else {
             mediaController?.play()
         }
+        // Save current position when user pauses
+        if (!_isPlaying.value && _currentEpisode.value != null && _currentPosition.longValue > 0) {
+            viewModelScope.launch {
+                repository.savePlaybackPosition(
+                    episodeId = _currentEpisode.value!!.id,
+                    position = _currentPosition.longValue
+                )
+            }
+        }
     }
 
     fun seekForward() {
         val newPosition = (mediaController?.currentPosition ?: 0L) + (_skipSeconds.intValue * 1000L)
         mediaController?.seekTo(newPosition)
+        // Save position after seeking
+        saveCurrentPosition()
     }
 
     fun seekBackward() {
         val newPosition = (mediaController?.currentPosition ?: 0L) - (_skipSeconds.intValue * 1000L)
         mediaController?.seekTo(newPosition)
+        // Save position after seeking
+        saveCurrentPosition()
+    }
+
+    private fun saveCurrentPosition() {
+        if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
+            viewModelScope.launch {
+                repository.savePlaybackPosition(
+                    episodeId = _currentEpisode.value!!.id,
+                    position = _currentPosition.longValue
+                )
+            }
+        }
     }
 
     fun seekTo(positionMs: Long) {
         mediaController?.seekTo(positionMs)
+        // Save position after user drags progress bar
+        saveCurrentPosition()
     }
 
     fun showFullPlayer() {
@@ -595,7 +660,7 @@ class PodcastViewModel(
 
     fun clearPodcastDetails() {
         _currentPodcastDetails.value = null
-        _playbackPositions.value = emptyMap()
+        // Keep playback positions cached across podcast navigation
         _detailError.value = null
     }
 
@@ -666,15 +731,23 @@ class PodcastViewModel(
 
     private fun registerPlaybackServiceErrorCallback() {
         PlaybackService.setErrorCallback { error ->
-            val cause = error.cause
-            val isNetworkError = cause is java.net.UnknownHostException ||
-                                cause is java.net.SocketException
-
-            if (isNetworkError) {
-                _playbackError.value = PlaybackError.NetworkError("No internet connection")
-                _isPlaying.value = false
-                _isBuffering.value = false
+            val message = when (error.errorCode) {
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> {
+                    _playbackError.value = PlaybackError.NetworkError("No internet connection")
+                    null
+                }
+                PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Server returned an error. Try again later."
+                PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                PlaybackException.ERROR_CODE_DECODING_FAILED,
+                PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "Unsupported or corrupted audio file."
+                else -> "Playback error occurred."
             }
+            if (message != null) {
+                _playbackError.value = PlaybackError.GeneralError(message)
+            }
+            _isPlaying.value = false
+            _isBuffering.value = false
         }
     }
 
@@ -694,5 +767,6 @@ class PodcastViewModel(
         controllerFuture?.let {
             MediaController.releaseFuture(it)
         }
+        positionUpdateJob?.cancel()
     }
 }

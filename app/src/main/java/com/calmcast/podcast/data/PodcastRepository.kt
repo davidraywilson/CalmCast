@@ -66,8 +66,11 @@ class PodcastRepository(
                 )
                 podcastDao.insertPodcast(updatedPodcast)
                 val episodes = response.episodes.map { episodeResult ->
+                    // Generate deterministic episode ID from podcast ID + title + audio URL
+                    // This ensures the ID remains stable across app restarts and minor URL changes
+                    val stableId = "${podcast.id}|${episodeResult.title}|${episodeResult.audioUrl}".hashCode().toString()
                     Episode(
-                        id = episodeResult.audioUrl.hashCode().toString(),
+                        id = stableId,
                         podcastId = podcast.id,
                         podcastTitle = podcast.title,
                         title = episodeResult.title,

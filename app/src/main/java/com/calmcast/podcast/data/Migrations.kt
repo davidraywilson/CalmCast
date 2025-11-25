@@ -16,4 +16,12 @@ object Migrations {
             )
         }
     }
+
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Clear all playback positions to start fresh with new stable episode IDs
+            // This ensures consistency between old unstable IDs and new stable IDs
+            database.execSQL("DELETE FROM playback_position")
+        }
+    }
 }

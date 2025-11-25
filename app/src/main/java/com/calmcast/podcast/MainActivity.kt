@@ -1,7 +1,6 @@
 package com.calmcast.podcast
 
 import android.app.Application
-import android.content.ComponentName
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -48,8 +47,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -69,7 +66,6 @@ import com.calmcast.podcast.ui.podcastdetail.FeedNotFoundScreen
 import com.calmcast.podcast.ui.podcastdetail.PodcastDetailScreen
 import com.calmcast.podcast.ui.search.SearchScreen
 import com.calmcast.podcast.ui.subscriptions.SubscriptionsScreen
-import com.google.common.util.concurrent.MoreExecutors
 import com.mudita.mmd.ThemeMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.nav_bar.NavigationBarItemMMD
@@ -97,36 +93,20 @@ val navItems = listOf(
 
 class MainActivity : ComponentActivity() {
 
-    private var mediaController: MediaController? = null
     private val pipStateHolder = mutableStateOf(false)
     private lateinit var settingsManager: SettingsManager
+    private var isPlayingFlag: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settingsManager = SettingsManager(this)
         setContent {
             ThemeMMD {
-                CalmCastApp(pipStateHolder, settingsManager)
+                CalmCastApp(pipStateHolder, settingsManager, onIsPlayingChanged = { isPlaying ->
+                    isPlayingFlag = isPlaying
+                })
             }
         }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
-        val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        controllerFuture.addListener(
-            {
-                mediaController = controllerFuture.get()
-            },
-            MoreExecutors.directExecutor()
-        )
-    }
-
-    override fun onStop() {
-        super.onStop()
-        mediaController?.release()
-        mediaController = null
     }
 
     override fun onUserLeaveHint() {
@@ -136,7 +116,7 @@ class MainActivity : ComponentActivity() {
 
     private fun attemptEnterPictureInPictureMode() {
         try {
-            if (mediaController?.isPlaying == true &&
+            if (isPlayingFlag &&
                 settingsManager.isPictureInPictureEnabledSync() &&
                 PictureInPictureHelper.isPictureInPictureSupported(this)
             ) {
@@ -158,7 +138,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, settingsManager: SettingsManager) {
+fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, settingsManager: SettingsManager, onIsPlayingChanged: (Boolean) -> Unit) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostStateMMD() }
     val isInPiP = pipStateHolder
@@ -169,6 +149,11 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
     val playbackPositionDao = database.playbackPositionDao()
     val downloadDao = database.downloadDao()
     val viewModel: PodcastViewModel = viewModel(factory = PodcastViewModelFactory(application, podcastDao, playbackPositionDao, downloadDao, settingsManager))
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { viewModel.isPlaying.value }
+            .collect { playing -> onIsPlayingChanged(playing) }
+    }
 
     // Keep screen on when requested in full player
     val activity = LocalContext.current as? android.app.Activity
