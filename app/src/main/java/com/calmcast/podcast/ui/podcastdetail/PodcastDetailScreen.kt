@@ -118,12 +118,14 @@ fun PodcastDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 SafeHtmlText(
-                    html = podcast.description
+                    html = podcast.description,
+                    maxLines = 2,
+                    onTruncated = { isTruncated -> isDescriptionTruncated = isTruncated }
                 )
 
                 if (isDescriptionTruncated) {
                     Text(
-                        text = "...see more",
+                        text = "...read more",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
@@ -213,7 +215,8 @@ fun EpisodeItem(
     onPauseClick: () -> Unit = {},
     onCancelClick: () -> Unit = {},
     onResumeClick: () -> Unit = {},
-    removeDividers: Boolean = false
+    removeDividers: Boolean = false,
+    customPaddingValues: PaddingValues? = null
 ) {
     val showDescriptionModal = remember { mutableStateOf(false) }
 
@@ -235,7 +238,7 @@ fun EpisodeItem(
                     color = Color.Black,
                     modifier = Modifier.padding(bottom = 16.dp, top = 16.dp)
                 )
-                if (!episode.description.isNullOrBlank()) {
+                if (episode.description.isNotBlank()) {
                     SafeHtmlText(
                         html = episode.description,
                         forceBlackText = true
@@ -339,6 +342,7 @@ fun EpisodeItem(
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .padding(customPaddingValues ?: PaddingValues(0.dp))
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

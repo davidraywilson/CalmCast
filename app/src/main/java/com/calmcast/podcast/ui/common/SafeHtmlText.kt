@@ -10,7 +10,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SafeHtmlText(html: String, forceBlackText: Boolean = false) {
+fun SafeHtmlText(
+    html: String,
+    forceBlackText: Boolean = false,
+    maxLines: Int? = null,
+    onTruncated: (Boolean) -> Unit = {}
+) {
     val parsedHtml = remember(html) {
         runCatching {
             HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
@@ -18,7 +23,7 @@ fun SafeHtmlText(html: String, forceBlackText: Boolean = false) {
     }
 
     if (parsedHtml != null) {
-        HtmlText(html = html, forceBlackText = forceBlackText)
+        HtmlText(html = html, forceBlackText = forceBlackText, maxLines = maxLines, onTruncated = onTruncated)
     } else {
         Text("Error loading description")
     }

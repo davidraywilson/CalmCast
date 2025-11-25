@@ -2,6 +2,7 @@ package com.calmcast.podcast.ui.downloads
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -90,7 +91,7 @@ fun DownloadsScreen(
         LazyColumnMMD(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 16.dp, end = 16.dp)
+                .padding(start = 16.dp)
         ) {
             itemsIndexed(
                 items = validDownloads,
@@ -111,7 +112,10 @@ fun DownloadsScreen(
                     onPauseClick = { onPauseClick(download.episode) },
                     onCancelClick = { onCancelClick(download.episode) },
                     onResumeClick = { onResumeClick(download.episode) },
-                    removeDividers = removeDividers
+                    removeDividers = removeDividers,
+                    customPaddingValues = PaddingValues(
+                        end = 16.dp,
+                    )
                 )
             }
         }
