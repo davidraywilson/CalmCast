@@ -53,6 +53,7 @@ import com.calmcast.podcast.data.Podcast
 import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.data.download.DownloadStatus
 import com.calmcast.podcast.ui.common.HtmlText
+import com.calmcast.podcast.ui.common.SafeHtmlText
 import com.calmcast.podcast.utils.DateTimeFormatter
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
@@ -90,7 +91,7 @@ fun PodcastDetailScreen(
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                HtmlText(
+                SafeHtmlText(
                     html = podcast.description
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -116,10 +117,8 @@ fun PodcastDetailScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                HtmlText(
-                    html = podcast.description,
-                    maxLines = 3,
-                    onTruncated = { isDescriptionTruncated = it }
+                SafeHtmlText(
+                    html = podcast.description
                 )
 
                 if (isDescriptionTruncated) {
@@ -218,7 +217,7 @@ fun EpisodeItem(
 ) {
     val showDescriptionModal = remember { mutableStateOf(false) }
 
-    if (showDescriptionModal.value && episode.description.isNotEmpty()) {
+    if (showDescriptionModal.value && !episode.description.isNullOrEmpty()) {
         ModalBottomSheetMMD(
             onDismissRequest = { showDescriptionModal.value = false }
         ) {
@@ -230,15 +229,18 @@ fun EpisodeItem(
                     .padding(start = 16.dp, end = 16.dp)
             ) {
                 Text(
-                    text = episode.title,
+                    text = episode.title.takeIf { it.isNotBlank() } ?: "Episode",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
                     modifier = Modifier.padding(bottom = 16.dp, top = 16.dp)
                 )
-                HtmlText(
-                    html = episode.description
-                )
+                if (!episode.description.isNullOrBlank()) {
+                    SafeHtmlText(
+                        html = episode.description,
+                        forceBlackText = true
+                    )
+                }
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
@@ -347,7 +349,7 @@ fun EpisodeItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    if (episode.description.isNotEmpty()) {
+                    if (!episode.description.isNullOrEmpty()) {
                         IconButton(
                             onClick = { showDescriptionModal.value = true },
                             modifier = Modifier.size(24.dp)

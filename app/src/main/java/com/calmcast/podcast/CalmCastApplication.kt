@@ -9,7 +9,6 @@ import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
 import com.calmcast.podcast.data.download.AndroidDownloadManager
-import com.calmcast.podcast.data.download.DownloadDatabase
 import com.calmcast.podcast.work.NewEpisodeWorker
 import com.calmcast.podcast.work.NewEpisodeWorkerFactory
 import kotlinx.coroutines.CoroutineScope
@@ -27,8 +26,9 @@ class CalmCastApplication : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() {
             val settingsManager = SettingsManager(this)
-            val downloadDao = DownloadDatabase.getDatabase(this).downloadDao()
-            val podcastDao = PodcastDatabase.getDatabase(this).podcastDao()
+            val database = PodcastDatabase.getDatabase(this)
+            val downloadDao = database.downloadDao()
+            val podcastDao = database.podcastDao()
             val workerFactory = NewEpisodeWorkerFactory(subscriptionManager, settingsManager, downloadDao, podcastDao, downloadManager)
 
             return Configuration.Builder()
@@ -41,8 +41,9 @@ class CalmCastApplication : Application(), Configuration.Provider {
 
         // Initialize centralized dependencies
         val okHttpClient = OkHttpClient()
-        val downloadDao = DownloadDatabase.getDatabase(this).downloadDao()
-        val podcastDao = PodcastDatabase.getDatabase(this).podcastDao()
+        val database = PodcastDatabase.getDatabase(this)
+        val downloadDao = database.downloadDao()
+        val podcastDao = database.podcastDao()
         val settingsManager = SettingsManager(this)
         subscriptionManager = SubscriptionManager(this, podcastDao)
         downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, podcastDao)

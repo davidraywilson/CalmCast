@@ -1,6 +1,7 @@
 package com.calmcast.podcast.data
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -13,8 +14,8 @@ import com.calmcast.podcast.data.download.DownloadDao
 abstract class PodcastDatabase : RoomDatabase() {
 
     abstract fun podcastDao(): PodcastDao
-    abstract fun downloadDao(): DownloadDao
     abstract fun playbackPositionDao(): PlaybackPositionDao
+    abstract fun downloadDao(): DownloadDao
 
     companion object {
         @Volatile
@@ -22,15 +23,37 @@ abstract class PodcastDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): PodcastDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    PodcastDatabase::class.java,
-                    "podcast_database"
-                )
-                    .fallbackToDestructiveMigration()
-                    .build()
-                INSTANCE = instance
-                instance
+                try {
+                    val instance = Room.databaseBuilder(
+                        context.applicationContext,
+                        PodcastDatabase::class.java,
+                        "podcast_database"
+                    )
+                        .fallbackToDestructiveMigration()
+                        .build()
+                    INSTANCE = instance
+                    instance
+                } catch (e: Exception) {
+                    Log.e("PodcastDatabase", "Error opening database, clearing and retrying", e)
+                    // Clear corrupted database files
+                    try {
+                        context.applicationContext.deleteDatabase("podcast_database")
+                        context.applicationContext.deleteDatabase("podcast_database-shm")
+                        context.applicationContext.deleteDatabase("podcast_database-wal")
+                    } catch (deleteError: Exception) {
+                        Log.e("PodcastDatabase", "Error deleting corrupted database", deleteError)
+                    }
+                    // Retry building the database
+                    val retryInstance = Room.databaseBuilder(
+                        context.applicationContext,
+                        PodcastDatabase::class.java,
+                        "podcast_database"
+                    )
+                        .fallbackToDestructiveMigration()
+                        .build()
+                    INSTANCE = retryInstance
+                    retryInstance
+                }
             }
         }
     }

@@ -58,7 +58,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.SettingsManager
-import com.calmcast.podcast.data.download.DownloadDatabase
 import com.calmcast.podcast.ui.FullPlayerScreen
 import com.calmcast.podcast.ui.PictureInPictureContent
 import com.calmcast.podcast.ui.PictureInPictureHelper
@@ -168,8 +167,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
     val database = PodcastDatabase.getDatabase(application)
     val podcastDao = database.podcastDao()
     val playbackPositionDao = database.playbackPositionDao()
-    val downloadDatabase = DownloadDatabase.getDatabase(application)
-    val downloadDao = downloadDatabase.downloadDao()
+    val downloadDao = database.downloadDao()
     val viewModel: PodcastViewModel = viewModel(factory = PodcastViewModelFactory(application, podcastDao, playbackPositionDao, downloadDao, settingsManager))
 
     // Keep screen on when requested in full player

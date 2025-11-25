@@ -2,6 +2,9 @@ package com.calmcast.podcast.ui.common
 
 import android.graphics.Color
 import android.text.Html
+import android.text.Spannable
+import android.text.style.ForegroundColorSpan
+import android.text.style.URLSpan
 import android.widget.TextView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -12,6 +15,7 @@ fun HtmlText(
     html: String,
     modifier: Modifier = Modifier,
     maxLines: Int? = null,
+    forceBlackText: Boolean = false,
     onTruncated: (Boolean) -> Unit = {}
 ) {
     AndroidView(
@@ -26,7 +30,17 @@ fun HtmlText(
             }
         },
         update = { textView ->
-            textView.text = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
+            val spanned = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
+            if (forceBlackText && spanned is Spannable) {
+                // Remove color spans and URL spans to force black text
+                val spans = spanned.getSpans(0, spanned.length, Any::class.java)
+                for (span in spans) {
+                    if (span is ForegroundColorSpan || span is URLSpan) {
+                        spanned.removeSpan(span)
+                    }
+                }
+            }
+            textView.text = spanned
             if (maxLines != null) {
                 textView.post {
                     val layout = textView.layout

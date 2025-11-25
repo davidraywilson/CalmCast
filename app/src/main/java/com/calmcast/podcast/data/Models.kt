@@ -26,7 +26,7 @@ data class Episode(
     val podcastId: String,
     val podcastTitle: String,
     val title: String,
-    val description: String = "",
+    val description: String? = null,
     val publishDate: String,
     val duration: String,
     val audioUrl: String,
