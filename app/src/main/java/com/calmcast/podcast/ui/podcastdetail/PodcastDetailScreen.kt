@@ -19,10 +19,18 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -30,6 +38,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.MaterialTheme
+import com.mudita.mmd.components.bottom_sheet.ModalBottomSheetMMD
 import com.calmcast.podcast.R
 import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PlaybackPosition
@@ -43,6 +54,7 @@ import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
 import com.mudita.mmd.components.progress_indicator.LinearProgressIndicatorMMD
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PodcastDetailScreen(
     podcast: Podcast,
@@ -61,6 +73,26 @@ fun PodcastDetailScreen(
     onRefreshClick: () -> Unit = {},
     removeDividers: Boolean = false
 ) {
+    val showDescriptionModal = remember { mutableStateOf(false) }
+    var isDescriptionTruncated by remember { mutableStateOf(false) }
+
+    if (showDescriptionModal.value) {
+        ModalBottomSheetMMD(
+            onDismissRequest = { showDescriptionModal.value = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                HtmlText(
+                    html = podcast.description
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+
     if (isLoadingEpisodes) {
         Box(
             modifier = Modifier
@@ -80,8 +112,20 @@ fun PodcastDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 HtmlText(
-                    html = podcast.description
+                    html = podcast.description,
+                    maxLines = 3,
+                    onTruncated = { isDescriptionTruncated = it }
                 )
+
+                if (isDescriptionTruncated) {
+                    Text(
+                        text = "...see more",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { showDescriptionModal.value = true }
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -124,7 +168,7 @@ fun PodcastDetailScreen(
                     }
                 }
             } else {
-                itemsIndexed(episodes) { index, episode ->
+                itemsIndexed(episodes, key = { _, episode -> episode.id }) { index, episode ->
                     val download = downloads.find { it.episode.id == episode.id }
                     val playbackPosition = playbackPositions[episode.id]
                     val isCurrentlyPlaying = episode.id == currentPlayingEpisodeId
