@@ -296,23 +296,25 @@ class PodcastViewModel(
                 _currentPosition.longValue = mediaController?.currentPosition ?: 0L
                 _duration.longValue = mediaController?.duration ?: 0L
 
-                // Update playback position state for UI rendering
+                // Save playback position to database every 10 seconds using wall-clock time
                 if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
-                    val updatedPosition = PlaybackPosition(
-                        episodeId = _currentEpisode.value!!.id,
-                        position = _currentPosition.longValue,
-                        lastPlayed = System.currentTimeMillis()
-                    )
-                    _playbackPositions.value = _playbackPositions.value + (updatedPosition.episodeId to updatedPosition)
-                    
-                    // Save playback position to database every 10 seconds using wall-clock time
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastSaveTime >= SAVE_INTERVAL_MS) {
                         lastSaveTime = currentTime
+                        val episodeId = _currentEpisode.value!!.id
+                        val position = _currentPosition.longValue
+                        // Save to database
                         repository.savePlaybackPosition(
-                            episodeId = _currentEpisode.value!!.id,
-                            position = _currentPosition.longValue
+                            episodeId = episodeId,
+                            position = position
                         )
+                        // Update UI state only when database is saved
+                        val updatedPosition = PlaybackPosition(
+                            episodeId = episodeId,
+                            position = position,
+                            lastPlayed = currentTime
+                        )
+                        _playbackPositions.value = _playbackPositions.value + (episodeId to updatedPosition)
                     }
                 }
                 delay(500)
@@ -455,7 +457,8 @@ class PodcastViewModel(
                     podcastWithEpisodes?.let { details ->
                         val episodeIds = details.episodes.map { it.id }
                         val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
-                        _playbackPositions.value = positions.associateBy { it.episodeId }
+                        // Merge new positions with existing cache instead of replacing
+                        _playbackPositions.value = _playbackPositions.value + positions.associateBy { it.episodeId }
                     }
                     _episodesLoading.value = false
                 }.onFailure { exception ->
@@ -507,6 +510,14 @@ class PodcastViewModel(
 
     fun playEpisode(episode: Episode) {
         viewModelScope.launch {
+            // Save position of currently playing episode before switching
+            if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
+                repository.savePlaybackPosition(
+                    episodeId = _currentEpisode.value!!.id,
+                    position = _currentPosition.longValue
+                )
+            }
+            
             Log.d(TAG, "playEpisode() called for: ${episode.title}")
             var episodeToPlay = episode
             val download = _downloads.value.find { it.episode.id == episode.id }
@@ -573,20 +584,46 @@ class PodcastViewModel(
         } else {
             mediaController?.play()
         }
+        // Save current position when user pauses
+        if (!_isPlaying.value && _currentEpisode.value != null && _currentPosition.longValue > 0) {
+            viewModelScope.launch {
+                repository.savePlaybackPosition(
+                    episodeId = _currentEpisode.value!!.id,
+                    position = _currentPosition.longValue
+                )
+            }
+        }
     }
 
     fun seekForward() {
         val newPosition = (mediaController?.currentPosition ?: 0L) + (_skipSeconds.intValue * 1000L)
         mediaController?.seekTo(newPosition)
+        // Save position after seeking
+        saveCurrentPosition()
     }
 
     fun seekBackward() {
         val newPosition = (mediaController?.currentPosition ?: 0L) - (_skipSeconds.intValue * 1000L)
         mediaController?.seekTo(newPosition)
+        // Save position after seeking
+        saveCurrentPosition()
+    }
+
+    private fun saveCurrentPosition() {
+        if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
+            viewModelScope.launch {
+                repository.savePlaybackPosition(
+                    episodeId = _currentEpisode.value!!.id,
+                    position = _currentPosition.longValue
+                )
+            }
+        }
     }
 
     fun seekTo(positionMs: Long) {
         mediaController?.seekTo(positionMs)
+        // Save position after user drags progress bar
+        saveCurrentPosition()
     }
 
     fun showFullPlayer() {
@@ -623,7 +660,7 @@ class PodcastViewModel(
 
     fun clearPodcastDetails() {
         _currentPodcastDetails.value = null
-        _playbackPositions.value = emptyMap()
+        // Keep playback positions cached across podcast navigation
         _detailError.value = null
     }
 

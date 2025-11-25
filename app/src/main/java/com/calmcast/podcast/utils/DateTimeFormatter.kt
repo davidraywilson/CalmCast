@@ -51,7 +51,38 @@ object DateTimeFormatter {
     fun parseDuration(durationStr: String?): Long? {
         if (durationStr.isNullOrBlank()) return null
 
-        return durationStr.toLongOrNull() ?: parseISO8601Duration(durationStr)
+        // Try parsing as plain seconds first
+        durationStr.toLongOrNull()?.let { return it }
+        
+        // Try ISO 8601 format (PT1H30M45S)
+        parseISO8601Duration(durationStr)?.let { return it }
+        
+        // Try HH:MM:SS or MM:SS format
+        return parseTimeFormat(durationStr)
+    }
+    
+    private fun parseTimeFormat(timeStr: String): Long? {
+        return try {
+            val parts = timeStr.split(":")
+            when (parts.size) {
+                2 -> {
+                    // MM:SS format
+                    val minutes = parts[0].toLongOrNull() ?: return null
+                    val seconds = parts[1].toLongOrNull() ?: return null
+                    minutes * 60 + seconds
+                }
+                3 -> {
+                    // HH:MM:SS format
+                    val hours = parts[0].toLongOrNull() ?: return null
+                    val minutes = parts[1].toLongOrNull() ?: return null
+                    val seconds = parts[2].toLongOrNull() ?: return null
+                    hours * 3600 + minutes * 60 + seconds
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun parseISO8601Duration(iso8601Duration: String): Long? {
