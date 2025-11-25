@@ -161,7 +161,6 @@ fun FullPlayerScreen(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "Minimize",
-                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -322,11 +321,13 @@ fun FullPlayerScreen(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier
-                        .weight(1f)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -335,7 +336,6 @@ fun FullPlayerScreen(
                         },
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
