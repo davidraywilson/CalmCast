@@ -296,8 +296,16 @@ class PodcastViewModel(
                 _currentPosition.longValue = mediaController?.currentPosition ?: 0L
                 _duration.longValue = mediaController?.duration ?: 0L
 
-                // Save playback position every 10 seconds using wall-clock time
+                // Update playback position state for UI rendering
                 if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
+                    val updatedPosition = PlaybackPosition(
+                        episodeId = _currentEpisode.value!!.id,
+                        position = _currentPosition.longValue,
+                        lastPlayed = System.currentTimeMillis()
+                    )
+                    _playbackPositions.value = _playbackPositions.value + (updatedPosition.episodeId to updatedPosition)
+                    
+                    // Save playback position to database every 10 seconds using wall-clock time
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastSaveTime >= SAVE_INTERVAL_MS) {
                         lastSaveTime = currentTime
