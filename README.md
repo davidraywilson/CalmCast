@@ -1,6 +1,7 @@
-| <img src="logo.svg" width="100" height="100" alt="CalmCast Logo"> | <a href="https://www.buymeacoffee.com/davidraywilson" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a> |
-|---|---|
-| | |
+<img align="left" src="logo.svg" width="100" height="100" alt="CalmCast Logo">
+<a href="https://www.buymeacoffee.com/davidraywilson" target="_blank">
+  <img align="right" src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a>
 
 # CalmCast
 
