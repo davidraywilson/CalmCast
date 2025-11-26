@@ -3,6 +3,8 @@
   <img align="right" src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
 </a>
 
+<br clear="all" />
+
 # CalmCast
 
 CalmCast is a minimal mindful podcast app built to work on de-googled E-ink devices utilizing the Mudita Mindful Design library.
