@@ -47,6 +47,7 @@ CalmCast keeps podcasting calm. It’s thoughtfully designed with Kotlin and Jet
 - Complete episode archives with rich details
 - Offline listening with pause/resume downloads
 - Download management to free space and stay organized
+- Sleep timer for mindful listening sessions
 
 ## Why it matters
 - Privacy‑first: Everything stays on your device; preferences are stored locally
@@ -74,10 +75,11 @@ CalmCast keeps podcasting calm. It’s thoughtfully designed with Kotlin and Jet
 - Automatic cleanup of corrupted records
 
 ## Roadmap
-- Sleep timer for mindful listening
-- Bookmarking
-- Accessibility improvements
 - Additional api sources for user preference
+- Bookmarking
+- Queue
+- Playlist
+- Accessibility improvements
 
 ## For developers
 Want to build from source?
