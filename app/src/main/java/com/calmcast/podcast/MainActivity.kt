@@ -510,7 +510,12 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             sleepTimerMinutes = viewModel.sleepTimerMinutes.value,
                             onSleepTimerMinutesChange = { minutes ->
                                 viewModel.setSleepTimerMinutes(minutes)
-                            }
+                            },
+                            downloadLocation = viewModel.downloadLocation.value,
+                            onDownloadLocationChange = { location ->
+                                viewModel.setDownloadLocation(location)
+                            },
+                            isExternalStorageAvailable = viewModel.isExternalStorageAvailable.value
                         )
                     }
                 }

@@ -16,10 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calmcast.podcast.data.SettingsManager
+import com.calmcast.podcast.data.DownloadLocation
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import com.calmcast.podcast.data.download.StorageManager
+import androidx.compose.material3.Text as Material3Text
 
 @Composable
 fun SettingsScreen(
@@ -37,10 +40,14 @@ fun SettingsScreen(
     sleepTimerEnabled: Boolean = false,
     onSleepTimerEnabledChange: (Boolean) -> Unit = {},
     sleepTimerMinutes: Int = 0,
-    onSleepTimerMinutesChange: (Int) -> Unit = {}
+    onSleepTimerMinutesChange: (Int) -> Unit = {},
+    downloadLocation: DownloadLocation = DownloadLocation.INTERNAL,
+    onDownloadLocationChange: (DownloadLocation) -> Unit = {},
+    isExternalStorageAvailable: Boolean = false
 ) {
     val skipOptions = listOf(5, 10, 15, 30)
     val sleepTimerOptions = listOf(5, 10, 15, 30, 45, 60)
+    val downloadLocationOptions = listOf(DownloadLocation.INTERNAL, DownloadLocation.EXTERNAL)
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -81,6 +88,60 @@ fun SettingsScreen(
                     onCheckedChange = onAutoDownloadToggle
                 )
             }
+            if (removeHorizontalDividers) {
+                Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
+            } else {
+                HorizontalDividerMMD(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 1.dp
+                )
+            }
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
+            ) {
+                Text(text = "Download Location")
+            }
+        }
+        items(downloadLocationOptions) { location ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (location == DownloadLocation.EXTERNAL && !isExternalStorageAvailable) {
+                            return@clickable
+                        }
+                        onDownloadLocationChange(location)
+                    }
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
+            ) {
+                RadioButton(
+                    selected = downloadLocation == location,
+                    onClick = {
+                        if (location == DownloadLocation.EXTERNAL && !isExternalStorageAvailable) {
+                            return@RadioButton
+                        }
+                        onDownloadLocationChange(location)
+                    },
+                    enabled = location == DownloadLocation.INTERNAL || isExternalStorageAvailable
+                )
+                val displayText = when (location) {
+                    DownloadLocation.INTERNAL -> "Internal Storage"
+                    DownloadLocation.EXTERNAL -> "External Storage (SD Card)"
+                }
+                val labelText = if (location == DownloadLocation.EXTERNAL && !isExternalStorageAvailable) {
+                    "$displayText (Not Available)"
+                } else {
+                    displayText
+                }
+                Text(text = labelText, modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+        item {
             if (removeHorizontalDividers) {
                 Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
             } else {

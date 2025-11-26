@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PodcastDao
+import com.calmcast.podcast.data.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,7 +21,8 @@ class AndroidDownloadManager(
     private val context: Context,
     private val client: OkHttpClient,
     private val downloadDao: DownloadDao,
-    private val podcastDao: PodcastDao? = null
+    private val podcastDao: PodcastDao? = null,
+    private val settingsManager: SettingsManager
 ) : com.calmcast.podcast.data.download.DownloadManager {
 
     companion object {
@@ -37,7 +39,8 @@ class AndroidDownloadManager(
     override fun startDownload(episode: Episode): Long {
         val downloadId = episode.audioUrl.hashCode().toLong()
         val episodeId = episode.id
-        val file = File(context.filesDir, "${episode.id}.mp3")
+        val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
+        val file = File(baseDir, "${episode.id}.mp3")
 
         val download = Download(episodeId, episode, DownloadStatus.DOWNLOADING, 0f)
 
@@ -139,7 +142,8 @@ class AndroidDownloadManager(
         pausedDownloads.remove(episodeId)
         activeCalls[episodeId]?.cancel()
         activeDownloads[episodeId]?.cancel()
-        val file = File(context.filesDir, "$episodeId.mp3")
+        val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
+        val file = File(baseDir, "$episodeId.mp3")
         if (file.exists()) {
             file.delete()
         }
@@ -182,8 +186,9 @@ class AndroidDownloadManager(
     }
 
     override fun deleteDownload(episode: Episode) {
-        val file = File(context.filesDir, "${episode.id}.mp3")
-        val oldFile = File(context.filesDir, "${episode.title}.mp3")
+        val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
+        val file = File(baseDir, "${episode.id}.mp3")
+        val oldFile = File(baseDir, "${episode.title}.mp3")
         
         if (file.exists()) {
             Log.d(TAG, "Deleting download file for episode: ${episode.title}")

@@ -46,7 +46,7 @@ class CalmCastApplication : Application(), Configuration.Provider {
         val podcastDao = database.podcastDao()
         val settingsManager = SettingsManager(this)
         subscriptionManager = SubscriptionManager(this, podcastDao)
-        downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, podcastDao)
+        downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, podcastDao, settingsManager)
 
         // Clean up any invalid download records from previous versions
         CoroutineScope(Dispatchers.IO).launch {
