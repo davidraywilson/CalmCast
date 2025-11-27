@@ -309,8 +309,8 @@ fun EpisodeItem(
                     DownloadStatus.PAUSED -> {
                         // Cancel button will be rendered inline with progress bar
                     }
-                    DownloadStatus.FAILED, DownloadStatus.CANCELED -> {
-                        // For failed or canceled downloads, show delete icon to remove them
+                    DownloadStatus.FAILED, DownloadStatus.CANCELED, DownloadStatus.STORAGE_UNAVAILABLE -> {
+                        // For failed, canceled, or storage unavailable downloads, show delete icon to remove them
                         IconButton(
                             onClick = onDeleteClick,
                             modifier = Modifier
@@ -416,6 +416,13 @@ fun EpisodeItem(
                             )
                         }
                     }
+                } else if (download?.status == DownloadStatus.STORAGE_UNAVAILABLE) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "External storage unavailable. Check SD card and try again.",
+                        fontSize = 12.sp,
+                        color = Color.Red
+                    )
                 } else if (playbackPosition != null && playbackPosition.position > 0) {
                     val durationInSeconds = DateTimeFormatter.parseDuration(episode.duration)
                     if (durationInSeconds != null && durationInSeconds > 0) {

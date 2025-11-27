@@ -1,26 +1,30 @@
 package com.calmcast.podcast.data.download
 
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import com.calmcast.podcast.data.DownloadLocation
 import com.calmcast.podcast.data.SettingsManager
 import java.io.File
+
+class StorageUnavailableException(message: String) : Exception(message)
 
 object StorageManager {
     private const val TAG = "StorageManager"
 
     /**
      * Get the base directory for downloads based on the current preference.
-     * Handles fallback to internal storage if external is unavailable.
+     * Throws an exception if external storage is requested but unavailable.
      *
      * @param context Android context
      * @param settingsManager Settings manager with download location preference
      * @return Base directory for downloads
+     * @throws StorageUnavailableException if external storage is requested but not available
      */
     fun getDownloadBaseDir(context: Context, settingsManager: SettingsManager): File {
         val location = settingsManager.getDownloadLocationSync()
         return when (location) {
-            DownloadLocation.EXTERNAL -> getExternalStorageDir(context) ?: getInternalStorageDir(context)
+            DownloadLocation.EXTERNAL -> getExternalStorageDir(context) ?: throw StorageUnavailableException("External storage is not available")
             DownloadLocation.INTERNAL -> getInternalStorageDir(context)
         }
     }
@@ -48,17 +52,23 @@ object StorageManager {
      */
     private fun getExternalStorageDir(context: Context): File? {
         return try {
-            val externalDir = context.getExternalFilesDir(null)
-            if (externalDir != null) {
-                externalDir.mkdirs()
-                Log.d(TAG, "Using external storage: ${externalDir.absolutePath}")
-                externalDir
-            } else {
-                Log.w(TAG, "External storage directory is null (possibly not mounted)")
-                null
+            // Iterate over all app-scoped external dirs and return the first that is
+            // removable, mounted, and writable. This represents real expandable storage
+            // (e.g., SD card or USB OTG) rather than emulated primary storage.
+            val candidates = context.getExternalFilesDirs(null)
+            candidates?.firstOrNull { dir ->
+                if (dir == null) return@firstOrNull false
+                val state = Environment.getExternalStorageState(dir)
+                val isRemovable = Environment.isExternalStorageRemovable(dir)
+                val ok = isRemovable && state == Environment.MEDIA_MOUNTED && dir.canWrite()
+                if (ok) {
+                    dir.mkdirs()
+                    Log.d(TAG, "Using removable external storage: ${dir.absolutePath}")
+                }
+                ok
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to access external storage: ${e.message}", e)
+            Log.w(TAG, "Failed to access removable external storage: ${e.message}", e)
             null
         }
     }
@@ -71,8 +81,7 @@ object StorageManager {
      */
     fun isExternalStorageAvailable(context: Context): Boolean {
         return try {
-            val externalDir = context.getExternalFilesDir(null)
-            externalDir != null && externalDir.canWrite()
+            getExternalStorageDir(context) != null
         } catch (e: Exception) {
             false
         }

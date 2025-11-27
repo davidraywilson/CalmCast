@@ -1,7 +1,6 @@
 package com.calmcast.podcast.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -29,6 +27,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.key
+import androidx.compose.ui.unit.sp
+import com.mudita.mmd.components.text.TextMMD
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,7 +66,13 @@ fun SettingsScreen(
                 TabMMD(
                     selected = selectedTab == index,
                     onClick = { selectedTab = index },
-                    text = { Text(text = title) },
+                    text = {
+                        TextMMD(
+                            text = title,
+                            fontSize = 16.sp,
+                            fontWeight = if (selectedTab == index) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
+                        )
+                    },
                 )
             }
         }
@@ -81,7 +87,11 @@ fun SettingsScreen(
                                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Enable Picture-in-Picture", modifier = Modifier.weight(1f))
+                            TextMMD(
+                                text = "Enable Picture-in-Picture",
+                                fontSize = 16.sp,
+                                modifier = Modifier.weight(1f)
+                            )
                             Switch(
                                 checked = isPictureInPictureEnabled,
                                 onCheckedChange = onPictureInPictureToggle
@@ -103,7 +113,11 @@ fun SettingsScreen(
                                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Sleep Timer", modifier = Modifier.weight(1f))
+                            TextMMD(
+                                text = "Use Sleep Timer",
+                                fontSize = 16.sp,
+                                modifier = Modifier.weight(1f),
+                            )
                             Switch(
                                 checked = sleepTimerEnabled,
                                 onCheckedChange = onSleepTimerEnabledChange
@@ -129,7 +143,11 @@ fun SettingsScreen(
                                     selected = sleepTimerMinutes == minutes,
                                     onClick = { onSleepTimerMinutesChange(minutes) }
                                 )
-                                Text(text = if (minutes == 60) "1 hour" else "$minutes minutes", modifier = Modifier.padding(start = 8.dp))
+                                TextMMD(
+                                    text = if (minutes == 60) "1 hour" else "$minutes minutes",
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
                             }
                         }
                     }
@@ -139,7 +157,10 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
                         ) {
-                            Text(text = "Skip seconds")
+                            TextMMD(
+                                text = "Skip seconds",
+                                fontSize = 16.sp,
+                            )
                         }
                     }
                     items(skipOptions) { seconds ->
@@ -154,7 +175,11 @@ fun SettingsScreen(
                                 selected = skipSeconds == seconds,
                                 onClick = { onSkipSecondsChange(seconds) }
                             )
-                            Text(text = "$seconds seconds", modifier = Modifier.padding(start = 8.dp))
+                            TextMMD(
+                                text = "$seconds seconds",
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
                         }
                     }
                 }
@@ -167,7 +192,11 @@ fun SettingsScreen(
                                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Enable Auto-Downloads", modifier = Modifier.weight(1f))
+                            TextMMD(
+                                text = "Enable Auto-Downloads",
+                                fontSize = 16.sp,
+                                modifier = Modifier.weight(1f)
+                            )
                             Switch(
                                 checked = isAutoDownloadEnabled,
                                 onCheckedChange = onAutoDownloadToggle
@@ -188,7 +217,10 @@ fun SettingsScreen(
                                 .fillMaxWidth()
                                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
                         ) {
-                            Text(text = "Download Location")
+                            TextMMD(
+                                text = "Download Location",
+                                fontSize = 16.sp
+                            )
                         }
                     }
                     items(downloadLocationOptions) { location ->
@@ -223,7 +255,11 @@ fun SettingsScreen(
                             } else {
                                 displayText
                             }
-                            Text(text = labelText, modifier = Modifier.padding(start = 8.dp))
+                            TextMMD(
+                                text = labelText,
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
                         }
                     }
                 }
@@ -236,7 +272,11 @@ fun SettingsScreen(
                                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Keep Screen On (Full Player)", modifier = Modifier.weight(1f))
+                            TextMMD(
+                                text = "Keep Screen On (Full Player)",
+                                fontSize = 16.sp,
+                                modifier = Modifier.weight(1f)
+                            )
                             Switch(
                                 checked = isKeepScreenOnEnabled,
                                 onCheckedChange = onKeepScreenOnToggle
@@ -258,7 +298,11 @@ fun SettingsScreen(
                                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Hide dividers", modifier = Modifier.weight(1f))
+                            TextMMD(
+                                text = "Hide dividers",
+                                fontSize = 16.sp,
+                                modifier = Modifier.weight(1f)
+                            )
                             Switch(
                                 checked = removeHorizontalDividers,
                                 onCheckedChange = onRemoveHorizontalDividersToggle

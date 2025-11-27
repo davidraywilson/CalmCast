@@ -39,7 +39,17 @@ class AndroidDownloadManager(
     override fun startDownload(episode: Episode): Long {
         val downloadId = episode.audioUrl.hashCode().toLong()
         val episodeId = episode.id
-        val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
+        val baseDir: File
+        try {
+            baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
+        } catch (e: StorageUnavailableException) {
+            Log.w(TAG, "External storage unavailable for episode: ${episode.title}")
+            CoroutineScope(Dispatchers.IO).launch {
+                val download = Download(episodeId, episode, DownloadStatus.STORAGE_UNAVAILABLE, 0f)
+                downloadDao.insert(download)
+            }
+            return downloadId
+        }
         val file = File(baseDir, "${episode.id}.mp3")
 
         val download = Download(episodeId, episode, DownloadStatus.DOWNLOADING, 0f)
@@ -142,10 +152,14 @@ class AndroidDownloadManager(
         pausedDownloads.remove(episodeId)
         activeCalls[episodeId]?.cancel()
         activeDownloads[episodeId]?.cancel()
-        val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
-        val file = File(baseDir, "$episodeId.mp3")
-        if (file.exists()) {
-            file.delete()
+        try {
+            val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
+            val file = File(baseDir, "$episodeId.mp3")
+            if (file.exists()) {
+                file.delete()
+            }
+        } catch (e: StorageUnavailableException) {
+            Log.d(TAG, "Cannot delete file - external storage unavailable")
         }
         CoroutineScope(Dispatchers.IO).launch {
             val download = downloadDao.getByEpisodeId(episodeId)
@@ -186,20 +200,24 @@ class AndroidDownloadManager(
     }
 
     override fun deleteDownload(episode: Episode) {
-        val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
-        val file = File(baseDir, "${episode.id}.mp3")
-        val oldFile = File(baseDir, "${episode.title}.mp3")
-        
-        if (file.exists()) {
-            Log.d(TAG, "Deleting download file for episode: ${episode.title}")
-            Log.d(TAG, "Deleting file: ${file.absolutePath}")
-            file.delete()
-        }
-        
-        // Also delete old-format file if it exists
-        if (oldFile.exists()) {
-            Log.d(TAG, "Deleting old-format download file: ${oldFile.absolutePath}")
-            oldFile.delete()
+        try {
+            val baseDir = StorageManager.getDownloadBaseDir(context, settingsManager)
+            val file = File(baseDir, "${episode.id}.mp3")
+            val oldFile = File(baseDir, "${episode.title}.mp3")
+            
+            if (file.exists()) {
+                Log.d(TAG, "Deleting download file for episode: ${episode.title}")
+                Log.d(TAG, "Deleting file: ${file.absolutePath}")
+                file.delete()
+            }
+            
+            // Also delete old-format file if it exists
+            if (oldFile.exists()) {
+                Log.d(TAG, "Deleting old-format download file: ${oldFile.absolutePath}")
+                oldFile.delete()
+            }
+        } catch (e: StorageUnavailableException) {
+            Log.d(TAG, "Cannot delete file - external storage unavailable")
         }
         CoroutineScope(Dispatchers.IO).launch {
             val download = downloadDao.getByEpisodeId(episode.id)
