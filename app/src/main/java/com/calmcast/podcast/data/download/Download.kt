@@ -24,5 +24,6 @@ enum class DownloadStatus {
     FAILED,
     PAUSED,
     CANCELED,
-    DELETED  // User deleted - prevent auto-re-download, but allow manual re-download
+    DELETED,  // User deleted - prevent auto-re-download, but allow manual re-download
+    STORAGE_UNAVAILABLE  // External storage selected but not available
 }

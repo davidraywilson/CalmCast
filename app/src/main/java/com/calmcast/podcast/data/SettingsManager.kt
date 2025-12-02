@@ -5,6 +5,11 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+enum class DownloadLocation(val value: String) {
+    INTERNAL("internal"),
+    EXTERNAL("external")
+}
+
 class SettingsManager(context: Context) {
 
     private val sharedPreferences: SharedPreferences =
@@ -33,6 +38,9 @@ class SettingsManager(context: Context) {
 
     private val _isSleepTimerActive = MutableStateFlow(isSleepTimerActiveSync())
     val isSleepTimerActive = _isSleepTimerActive.asStateFlow()
+
+    private val _downloadLocation = MutableStateFlow(getDownloadLocationSync())
+    val downloadLocation = _downloadLocation.asStateFlow()
 
     fun setPictureInPictureEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_PIP, enabled).apply()
@@ -106,6 +114,16 @@ class SettingsManager(context: Context) {
         return sharedPreferences.getBoolean(KEY_SLEEP_TIMER_ACTIVE, false)
     }
 
+    fun setDownloadLocation(location: DownloadLocation) {
+        sharedPreferences.edit().putString(KEY_DOWNLOAD_LOCATION, location.value).apply()
+        _downloadLocation.value = location
+    }
+
+    fun getDownloadLocationSync(): DownloadLocation {
+        val value = sharedPreferences.getString(KEY_DOWNLOAD_LOCATION, DownloadLocation.INTERNAL.value)
+        return if (value == DownloadLocation.EXTERNAL.value) DownloadLocation.EXTERNAL else DownloadLocation.INTERNAL
+    }
+
     /**
      * Set the timestamp of the last episode refresh
      * @param timestamp Milliseconds since epoch
@@ -148,5 +166,6 @@ class SettingsManager(context: Context) {
         private const val KEY_SLEEP_TIMER_ENABLED = "sleep_timer_enabled"
         private const val KEY_SLEEP_TIMER_MINUTES = "sleep_timer_minutes"
         private const val KEY_SLEEP_TIMER_ACTIVE = "sleep_timer_active"
+        private const val KEY_DOWNLOAD_LOCATION = "download_location"
     }
 }

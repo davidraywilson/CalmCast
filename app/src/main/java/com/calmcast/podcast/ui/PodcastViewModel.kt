@@ -30,9 +30,11 @@ import com.calmcast.podcast.data.PodcastRepository
 import com.calmcast.podcast.data.PodcastWithEpisodes
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
+import com.calmcast.podcast.data.DownloadLocation
 import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.data.download.DownloadDao
 import com.calmcast.podcast.data.download.DownloadManager
+import com.calmcast.podcast.data.download.StorageManager
 import com.calmcast.podcast.utils.DateTimeFormatter
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
@@ -155,6 +157,12 @@ class PodcastViewModel(
     private val _sleepTimerRemainingSeconds = mutableLongStateOf(0L)
     val sleepTimerRemainingSeconds: State<Long> = _sleepTimerRemainingSeconds
 
+    private val _downloadLocation = mutableStateOf(DownloadLocation.INTERNAL)
+    val downloadLocation: State<DownloadLocation> = _downloadLocation
+
+    private val _isExternalStorageAvailable = mutableStateOf(false)
+    val isExternalStorageAvailable: State<Boolean> = _isExternalStorageAvailable
+
     private var searchJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var lastSaveTime: Long = 0L
@@ -188,6 +196,8 @@ class PodcastViewModel(
         _sleepTimerEnabled.value = settingsManager.isSleepTimerEnabledSync()
         _sleepTimerMinutes.intValue = settingsManager.getSleepTimerMinutesSync()
         _isSleepTimerActive.value = settingsManager.isSleepTimerActiveSync()
+        _downloadLocation.value = settingsManager.getDownloadLocationSync()
+        _isExternalStorageAvailable.value = StorageManager.isExternalStorageAvailable(application)
 
         viewModelScope.launch {
             settingsManager.isPictureInPictureEnabled.collect {
@@ -690,6 +700,11 @@ class PodcastViewModel(
 
     fun setSleepTimerMinutes(minutes: Int) {
         settingsManager.setSleepTimerMinutes(minutes)
+    }
+
+    fun setDownloadLocation(location: DownloadLocation) {
+        settingsManager.setDownloadLocation(location)
+        _downloadLocation.value = location
     }
 
     fun startSleepTimer() {
