@@ -40,7 +40,11 @@ class CalmCastApplication : Application(), Configuration.Provider {
         super.onCreate()
 
         // Initialize centralized dependencies
-        val okHttpClient = OkHttpClient()
+        val okHttpClient = OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
         val database = PodcastDatabase.getDatabase(this)
         val downloadDao = database.downloadDao()
         val podcastDao = database.podcastDao()

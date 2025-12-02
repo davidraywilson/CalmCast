@@ -81,8 +81,9 @@ class AndroidDownloadManager(
                         
                         body.byteStream().use { input ->
                             FileOutputStream(file, appendMode).use { output ->
-                                val buffer = ByteArray(4 * 1024)
+                                val buffer = ByteArray(64 * 1024)  // Increased from 4KB to 64KB for better throughput
                                 var read = input.read(buffer)
+                                var lastDbUpdateTime = System.currentTimeMillis()
                                 while (read >= 0) {
                                     // Check if paused
                                     if (pausedDownloads.contains(episodeId)) {
@@ -98,7 +99,12 @@ class AndroidDownloadManager(
                                     } else {
                                         -1f // Indeterminate progress
                                     }
-                                    downloadDao.insert(download.copy(status = DownloadStatus.DOWNLOADING, progress = progress, downloadedBytes = bytesCopied, totalBytes = totalBytes))
+                                    // Throttle database updates to once per second to reduce I/O overhead
+                                    val currentTime = System.currentTimeMillis()
+                                    if (currentTime - lastDbUpdateTime >= 1000) {
+                                        downloadDao.insert(download.copy(status = DownloadStatus.DOWNLOADING, progress = progress, downloadedBytes = bytesCopied, totalBytes = totalBytes))
+                                        lastDbUpdateTime = currentTime
+                                    }
                                     read = input.read(buffer)
                                 }
                             }
