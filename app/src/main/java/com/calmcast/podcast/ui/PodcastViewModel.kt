@@ -163,6 +163,9 @@ class PodcastViewModel(
     private val _isExternalStorageAvailable = mutableStateOf(false)
     val isExternalStorageAvailable: State<Boolean> = _isExternalStorageAvailable
 
+    private val _isAddingRSSFeed = mutableStateOf(false)
+    val isAddingRSSFeed: State<Boolean> = _isAddingRSSFeed
+
     private var searchJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var lastSaveTime: Long = 0L
@@ -432,6 +435,33 @@ class PodcastViewModel(
             repository.unsubscribeFromPodcast(podcastId).onSuccess {
                 _subscriptions.value = _subscriptions.value.filter { it.id != podcastId }
             }.onFailure { _errorMessage.value = it.message }
+        }
+    }
+
+    fun subscribeToRSSUrl(feedUrl: String, onResult: (Result<Podcast>) -> Unit = {}) {
+        if (_isAddingRSSFeed.value) return
+        _isAddingRSSFeed.value = true
+        viewModelScope.launch {
+            try {
+                val result = repository.subscribeToRSSUrl(feedUrl)
+                result.onSuccess { podcast ->
+                    if (!_subscriptions.value.any { it.id == podcast.id }) {
+                        val updatedList = _subscriptions.value + podcast
+                        val sortedPodcasts = updatedList.map { p ->
+                            async {
+                                val latestEpisode = podcastDao.getLatestEpisodeForPodcast(p.id)
+                                p to latestEpisode?.publishDate
+                            }
+                        }.awaitAll().sortedByDescending { it.second }.map { it.first }
+                        _subscriptions.value = sortedPodcasts
+                    }
+                }.onFailure {
+                    _errorMessage.value = it.message
+                }
+                onResult(result)
+            } finally {
+                _isAddingRSSFeed.value = false
+            }
         }
     }
 

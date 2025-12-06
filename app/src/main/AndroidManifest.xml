@@ -12,7 +12,7 @@
         android:maxSdkVersion="29" />
 
     <application
-        android:name=".CalmCastApplication"
+        android:name="com.calmcast.podcast.CalmCastApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android.fullBackupContent="@xml/backup_rules"
@@ -30,7 +30,7 @@
             tools:node="remove" />
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.calmcast.podcast.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.CalmCast"
             android:supportsPictureInPicture="true"
@@ -42,7 +42,7 @@
         </activity>
 
         <service
-            android:name=".PlaybackService"
+            android:name="com.calmcast.podcast.PlaybackService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

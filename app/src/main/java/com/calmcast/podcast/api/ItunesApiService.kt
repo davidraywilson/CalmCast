@@ -144,9 +144,58 @@ class ItunesApiService {
             }
         }
 
+    suspend fun getPodcastFromRSSUrl(feedUrl: String): Result<CustomRSSPodcast> =
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d("ItunesApi", "Fetching podcast from RSS URL: $feedUrl")
+                val request = Request.Builder()
+                    .url(feedUrl)
+                    .get()
+                    .build()
+
+                val response = client.newCall(request).execute()
+
+                if (!response.isSuccessful) {
+                    Log.e("ItunesApi", "Failed to fetch RSS: ${response.code} ${response.message}")
+                    when (response.code) {
+                        404 -> throw FeedNotFoundException("Podcast feed not found (404)")
+                        410 -> throw FeedGoneException("Podcast feed is no longer available (410)")
+                        403 -> throw FeedGoneException("Podcast feed access denied (403)")
+                        else -> throw Exception("Failed to fetch RSS feed: ${response.code}")
+                    }
+                }
+
+                val feedBody = response.body?.string()
+                    ?: throw Exception("Empty feed response")
+
+                Log.d("ItunesApi", "Parsing RSS feed, size: ${feedBody.length} bytes")
+                val parseResult = parseRssFeed(feedBody)
+                Log.d("ItunesApi", "Parsed ${parseResult.episodes.size} episodes from RSS feed")
+                
+                // Generate a unique ID based on the feed URL
+                val podcastId = feedUrl.hashCode().toString()
+                
+                val podcast = CustomRSSPodcast(
+                    id = podcastId,
+                    title = parseResult.title.ifEmpty { "Unnamed Podcast" },
+                    author = parseResult.author.ifEmpty { "Unknown" },
+                    description = parseResult.description,
+                    imageUrl = parseResult.imageUrl,
+                    feedUrl = feedUrl
+                )
+                Result.success(podcast)
+            } catch (e: Exception) {
+                Log.e("ItunesApi", "Error fetching podcast from RSS URL", e)
+                Result.failure(e)
+            }
+        }
+
     private fun parseRssFeed(feedXml: String): RssFeedParseResult {
         val episodes = mutableListOf<ItunesEpisodeResult>()
         var podcastDescription = ""
+        var podcastTitle = ""
+        var podcastAuthor = ""
+        var podcastImageUrl: String? = null
 
         try {
             val factory = XmlPullParserFactory.newInstance()
@@ -179,6 +228,8 @@ class ItunesApiService {
                             "title" -> {
                                 if (inItem && currentTitle.isEmpty()) {
                                     currentTitle = parser.nextText()
+                                } else if (inChannel && !inItem && podcastTitle.isEmpty()) {
+                                    podcastTitle = parser.nextText()
                                 }
                             }
                             "description", "summary" -> {
@@ -196,6 +247,19 @@ class ItunesApiService {
                             "duration" -> {
                                 if (inItem && currentDuration.isEmpty()) {
                                     currentDuration = parser.nextText()
+                                }
+                            }
+                            "author" -> {
+                                if (inChannel && !inItem && podcastAuthor.isEmpty()) {
+                                    podcastAuthor = parser.nextText()
+                                }
+                            }
+                            "image" -> {
+                                if (inChannel && !inItem) {
+                                    val href = parser.getAttributeValue(null, "href")
+                                    if (href != null && podcastImageUrl == null) {
+                                        podcastImageUrl = href
+                                    }
                                 }
                             }
                             "enclosure" -> {
@@ -250,7 +314,13 @@ class ItunesApiService {
             Log.e("ItunesApi", "Error parsing RSS feed", e)
         }
 
-        return RssFeedParseResult(episodes = episodes, description = podcastDescription)
+        return RssFeedParseResult(
+            episodes = episodes,
+            description = podcastDescription,
+            title = podcastTitle,
+            author = podcastAuthor,
+            imageUrl = podcastImageUrl
+        )
     }
 }
 
@@ -282,5 +352,17 @@ data class ItunesEpisodeResult(
 
 data class RssFeedParseResult(
     val episodes: List<ItunesEpisodeResult>,
-    val description: String
+    val description: String,
+    val title: String = "",
+    val author: String = "",
+    val imageUrl: String? = null
+)
+
+data class CustomRSSPodcast(
+    val id: String,
+    val title: String,
+    val author: String,
+    val description: String,
+    val imageUrl: String?,
+    val feedUrl: String
 )

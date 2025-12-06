@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calmcast.podcast.R
+import com.calmapps.calmcast.R
 import com.calmcast.podcast.data.Podcast
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
@@ -32,36 +32,51 @@ import com.mudita.mmd.components.lazy.LazyColumnMMD
 fun SubscriptionsScreen(
     podcasts: List<Podcast>,
     onPodcastClick: (Podcast) -> Unit,
+    showAddRSSModal: Boolean,
+    onShowAddRSSModal: (Boolean) -> Unit,
+    onAddRSSFeed: (String) -> Unit,
+    isAddingRSSFeed: Boolean,
     removeDividers: Boolean = false
 ) {
-    if (podcasts.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(stringResource(R.string.no_podcasts))
-        }
-    } else {
-        LazyColumnMMD(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            itemsIndexed(podcasts) { index, podcast ->
-                PodcastCard(podcast = podcast, onClick = { onPodcastClick(podcast) })
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (podcasts.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(stringResource(R.string.no_podcasts))
+            }
+        } else {
+            LazyColumnMMD(
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                itemsIndexed(podcasts) { index, podcast ->
+                    PodcastCard(podcast = podcast, onClick = { onPodcastClick(podcast) })
 
-                if (index < podcasts.size - 1) {
-                    if (removeDividers) {
-                        Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
-                    } else {
-                        HorizontalDividerMMD(
-                            modifier = Modifier.padding(start = 16.dp),
-                            thickness = 1.dp
-                        )
+                    if (index < podcasts.size - 1) {
+                        if (removeDividers) {
+                            Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
+                        } else {
+                            HorizontalDividerMMD(
+                                modifier = Modifier.padding(start = 16.dp),
+                                thickness = 1.dp
+                            )
+                        }
                     }
                 }
             }
         }
+
+        AddRSSFeedModal(
+            isVisible = showAddRSSModal,
+            onDismiss = { onShowAddRSSModal(false) },
+            onSave = { url ->
+                onAddRSSFeed(url)
+            },
+            isLoading = isAddingRSSFeed
+        )
     }
 }
 

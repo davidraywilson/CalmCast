@@ -27,11 +27,11 @@ plugins {
 }
 
 android {
-    namespace = "com.calmcast.podcast"
+    namespace = "com.calmapps.calmcast"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.calmcast.podcast"
+        applicationId = "com.calmapps.calmcast"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

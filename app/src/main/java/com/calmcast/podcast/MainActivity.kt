@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.sharp.Clear
@@ -142,6 +143,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostStateMMD() }
     val isInPiP = pipStateHolder
+
+    val showAddRSSModal = remember { mutableStateOf(false) }
 
     val application = LocalContext.current.applicationContext as Application
     val database = PodcastDatabase.getDatabase(application)
@@ -275,6 +278,12 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                             contentDescription = "Search"
                                         )
                                     }
+                                    IconButton(onClick = { showAddRSSModal.value = true }) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Add,
+                                            contentDescription = "Add RSS"
+                                        )
+                                    }
                                 }
                                 if (currentDestination?.route?.startsWith("detail/") == true) {
                                     val podcast = viewModel.currentPodcastDetails.value?.podcast
@@ -366,6 +375,23 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             onPodcastClick = { podcast ->
                                 navController.navigate("detail/${podcast.id}")
                             },
+                            showAddRSSModal = showAddRSSModal.value,
+                            onShowAddRSSModal = { show -> showAddRSSModal.value = show },
+                            onAddRSSFeed = { url ->
+                                viewModel.subscribeToRSSUrl(url) { result ->
+                                    scope.launch {
+                                        if (result.isSuccess) {
+                                            val p = result.getOrNull()
+                                            snackbarHostState.showSnackbar("Now following ${p?.title ?: "podcast"}")
+                                            showAddRSSModal.value = false
+                                        } else {
+                                            val message = result.exceptionOrNull()?.message ?: "Failed to add RSS feed"
+                                            snackbarHostState.showSnackbar(message)
+                                        }
+                                    }
+                                }
+                            },
+                            isAddingRSSFeed = viewModel.isAddingRSSFeed.value,
                             removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }

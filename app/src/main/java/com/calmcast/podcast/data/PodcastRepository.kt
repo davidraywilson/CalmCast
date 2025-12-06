@@ -155,4 +155,31 @@ class PodcastRepository(
     suspend fun getPodcastWithEpisodes(podcastId: String): PodcastWithEpisodes? {
         return podcastDao.getPodcastWithEpisodes(podcastId)
     }
+
+    suspend fun subscribeToRSSUrl(feedUrl: String): Result<Podcast> {
+        return try {
+            apiService.getPodcastFromRSSUrl(feedUrl).fold(
+                onSuccess = { customPodcast ->
+                    val podcast = Podcast(
+                        id = customPodcast.id,
+                        title = customPodcast.title,
+                        author = customPodcast.author,
+                        description = customPodcast.description,
+                        imageUrl = customPodcast.imageUrl,
+                        episodeCount = 0,
+                        feedUrl = customPodcast.feedUrl
+                    )
+                    // Save podcast to database
+                    podcastDao.insertPodcast(podcast)
+                    // Add to subscriptions
+                    val success = subscriptionManager.addSubscription(podcast)
+                    if (success) Result.success(podcast)
+                    else Result.failure(Exception("Podcast already subscribed or subscription failed"))
+                },
+                onFailure = { e -> Result.failure(e) }
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
