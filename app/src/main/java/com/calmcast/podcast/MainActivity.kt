@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.sharp.Clear
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -274,14 +275,25 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             },
                             actions = {
                                 if (currentDestination?.route == "subscriptions") {
-                                    IconButton(onClick = { navController.navigate("search") }) {
+                                    ButtonMMD(
+                                        contentPadding = PaddingValues(0.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.onBackground,
+                                            containerColor = MaterialTheme.colorScheme.background
+                                        ),
+                                        onClick = { navController.navigate("search") }
+                                    ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Search,
                                             contentDescription = "Search"
                                         )
                                     }
                                     ButtonMMD(
-                                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp),
+                                        contentPadding = PaddingValues(0.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.onBackground,
+                                            containerColor = MaterialTheme.colorScheme.background
+                                        ),
                                         onClick = { showAddRSSModal.value = true }
                                     ) {
                                         Icon(
@@ -294,19 +306,26 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                     val podcast = viewModel.currentPodcastDetails.value?.podcast
                                     if (podcast != null) {
                                         val isFollowed = viewModel.isSubscribed(podcast.id)
-                                        IconButton(onClick = {
-                                            if (isFollowed) {
-                                                viewModel.unsubscribeFromPodcast(podcast.id)
-                                                scope.launch {
-                                                    snackbarHostState.showSnackbar("Unfollowed ${podcast.title}")
-                                                }
-                                            } else {
-                                                viewModel.subscribeToPodcast(podcast)
-                                                scope.launch {
-                                                    snackbarHostState.showSnackbar("Followed ${podcast.title}")
+                                        ButtonMMD(
+                                            contentPadding = PaddingValues(0.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onBackground,
+                                                containerColor = MaterialTheme.colorScheme.background
+                                            ),
+                                            onClick = {
+                                                if (isFollowed) {
+                                                    viewModel.unsubscribeFromPodcast(podcast.id)
+                                                    scope.launch {
+                                                        snackbarHostState.showSnackbar("Unfollowed ${podcast.title}")
+                                                    }
+                                                } else {
+                                                    viewModel.subscribeToPodcast(podcast)
+                                                    scope.launch {
+                                                        snackbarHostState.showSnackbar("Followed ${podcast.title}")
+                                                    }
                                                 }
                                             }
-                                        }) {
+                                        ) {
                                             Icon(
                                                 imageVector = if (isFollowed) Icons.Filled.Star else Icons.Outlined.StarBorder,
                                                 contentDescription = if (isFollowed) "Unfollow" else "Follow"
@@ -316,13 +335,27 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 }
                                 if (viewModel.currentEpisode.value != null) {
                                     Row {
-                                        IconButton(onClick = { viewModel.togglePlayPause() }) {
+                                        ButtonMMD(
+                                            contentPadding = PaddingValues(0.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onBackground,
+                                                containerColor = MaterialTheme.colorScheme.background
+                                            ),
+                                            onClick = { viewModel.togglePlayPause() }
+                                        ) {
                                             Icon(
                                                 imageVector = if (viewModel.isPlaying.value) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                                                 contentDescription = if (viewModel.isPlaying.value) "Pause" else "Play"
                                             )
                                         }
-                                        IconButton(onClick = { viewModel.showFullPlayer() }) {
+                                        ButtonMMD(
+                                            contentPadding = PaddingValues(0.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onBackground,
+                                                containerColor = MaterialTheme.colorScheme.background
+                                            ),
+                                            onClick = { viewModel.showFullPlayer() }
+                                        ) {
                                             Icon(
                                                 imageVector = Icons.Filled.Fullscreen,
                                                 contentDescription = "Open full screen player"
