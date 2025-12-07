@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -68,6 +69,7 @@ import com.calmcast.podcast.ui.podcastdetail.PodcastDetailScreen
 import com.calmcast.podcast.ui.search.SearchScreen
 import com.calmcast.podcast.ui.subscriptions.SubscriptionsScreen
 import com.mudita.mmd.ThemeMMD
+import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.nav_bar.NavigationBarItemMMD
 import com.mudita.mmd.components.nav_bar.NavigationBarMMD
@@ -278,7 +280,10 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                             contentDescription = "Search"
                                         )
                                     }
-                                    IconButton(onClick = { showAddRSSModal.value = true }) {
+                                    ButtonMMD(
+                                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp),
+                                        onClick = { showAddRSSModal.value = true }
+                                    ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Add,
                                             contentDescription = "Add RSS"
