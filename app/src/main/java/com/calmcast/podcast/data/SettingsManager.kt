@@ -42,6 +42,9 @@ class SettingsManager(context: Context) {
     private val _downloadLocation = MutableStateFlow(getDownloadLocationSync())
     val downloadLocation = _downloadLocation.asStateFlow()
 
+    private val _playbackSpeed = MutableStateFlow(getPlaybackSpeedSync())
+    val playbackSpeed = _playbackSpeed.asStateFlow()
+
     fun setPictureInPictureEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_PIP, enabled).apply()
         _isPictureInPictureEnabled.value = enabled
@@ -124,6 +127,15 @@ class SettingsManager(context: Context) {
         return if (value == DownloadLocation.EXTERNAL.value) DownloadLocation.EXTERNAL else DownloadLocation.INTERNAL
     }
 
+    fun setPlaybackSpeed(speed: Float) {
+        sharedPreferences.edit().putFloat(KEY_PLAYBACK_SPEED, speed).apply()
+        _playbackSpeed.value = speed
+    }
+
+    fun getPlaybackSpeedSync(): Float {
+        return sharedPreferences.getFloat(KEY_PLAYBACK_SPEED, 1f)
+    }
+
     /**
      * Set the timestamp of the last episode refresh
      * @param timestamp Milliseconds since epoch
@@ -167,5 +179,9 @@ class SettingsManager(context: Context) {
         private const val KEY_SLEEP_TIMER_MINUTES = "sleep_timer_minutes"
         private const val KEY_SLEEP_TIMER_ACTIVE = "sleep_timer_active"
         private const val KEY_DOWNLOAD_LOCATION = "download_location"
+        private const val KEY_PLAYBACK_SPEED = "playback_speed"
+
+        val PLAYBACK_SPEEDS = listOf(0.5f, 0.75f, 1f, 1.5f, 2f, 2.5f)
+        val SLEEP_TIMER_OPTIONS = listOf(5, 10, 15, 30, 45, 60)
     }
 }

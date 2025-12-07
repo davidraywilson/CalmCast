@@ -15,6 +15,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.calmcast.podcast.PlaybackService
@@ -166,6 +167,9 @@ class PodcastViewModel(
     private val _isAddingRSSFeed = mutableStateOf(false)
     val isAddingRSSFeed: State<Boolean> = _isAddingRSSFeed
 
+    private val _playbackSpeed = mutableStateOf(1f)
+    val playbackSpeed: State<Float> = _playbackSpeed
+
     private var searchJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var lastSaveTime: Long = 0L
@@ -200,6 +204,7 @@ class PodcastViewModel(
         _sleepTimerMinutes.intValue = settingsManager.getSleepTimerMinutesSync()
         _isSleepTimerActive.value = settingsManager.isSleepTimerActiveSync()
         _downloadLocation.value = settingsManager.getDownloadLocationSync()
+        _playbackSpeed.value = settingsManager.getPlaybackSpeedSync()
         _isExternalStorageAvailable.value = StorageManager.isExternalStorageAvailable(application)
 
         viewModelScope.launch {
@@ -246,6 +251,12 @@ class PodcastViewModel(
                 if (!it) {
                     stopSleepTimer()
                 }
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.playbackSpeed.collect {
+                _playbackSpeed.value = it
+                applyPlaybackSpeed(it)
             }
         }
     }
@@ -730,11 +741,33 @@ class PodcastViewModel(
 
     fun setSleepTimerMinutes(minutes: Int) {
         settingsManager.setSleepTimerMinutes(minutes)
+        _sleepTimerMinutes.intValue = minutes
     }
 
     fun setDownloadLocation(location: DownloadLocation) {
         settingsManager.setDownloadLocation(location)
         _downloadLocation.value = location
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        settingsManager.setPlaybackSpeed(speed)
+        _playbackSpeed.value = speed
+        applyPlaybackSpeed(speed)
+    }
+
+    fun cyclePlaybackSpeed() {
+        val speeds = SettingsManager.PLAYBACK_SPEEDS
+        val currentIndex = speeds.indexOf(_playbackSpeed.value)
+        val nextIndex = if (currentIndex >= 0 && currentIndex < speeds.size - 1) currentIndex + 1 else 0
+        val nextSpeed = speeds[nextIndex]
+        setPlaybackSpeed(nextSpeed)
+    }
+
+    private fun applyPlaybackSpeed(speed: Float) {
+        if (mediaController != null) {
+            val params = PlaybackParameters(speed)
+            mediaController?.setPlaybackParameters(params)
+        }
     }
 
     fun startSleepTimer() {
@@ -758,6 +791,11 @@ class PodcastViewModel(
                 _sleepTimerRemainingSeconds.longValue = 0L
             }
         }
+    }
+
+    fun setSleepTimerMinutesAndRestart(minutes: Int) {
+        setSleepTimerMinutes(minutes)
+        startSleepTimer()
     }
 
     fun stopSleepTimer() {
@@ -794,6 +832,10 @@ class PodcastViewModel(
             _isPlaying.value = false
             _isBuffering.value = false
         }
+    }
+
+    private fun onMediaControllerReady() {
+        applyPlaybackSpeed(_playbackSpeed.value)
     }
 
     override fun onCleared() {

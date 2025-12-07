@@ -51,6 +51,7 @@ import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.data.download.DownloadStatus
 import com.calmcast.podcast.ui.common.SafeHtmlText
 import com.calmcast.podcast.utils.DateTimeFormatter
+import com.calmcast.podcast.ui.common.DashedDivider
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
@@ -433,15 +434,11 @@ fun EpisodeItem(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (!isLastItem) {
-                    if (removeDividers) {
-                        Spacer(modifier = Modifier.height(1.dp))
-                    } else {
-                        HorizontalDividerMMD(
-                            thickness = 1.dp,
-                            modifier = Modifier.padding(vertical = 0.dp)
-                        )
-                    }
+                if (!isLastItem && !removeDividers) {
+                    DashedDivider(
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(vertical = 0.dp)
+                    )
                 }
             }
         }

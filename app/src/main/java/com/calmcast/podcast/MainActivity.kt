@@ -546,7 +546,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                     }
                     composable("settings") {
                         SettingsScreen(
-                            settingsManager = settingsManager,
+                    settingsManager = settingsManager,
                             isPictureInPictureEnabled = viewModel.isPictureInPictureEnabled.value,
                             onPictureInPictureToggle = { enabled ->
                                 viewModel.setPictureInPictureEnabled(enabled)
@@ -579,7 +579,11 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             onDownloadLocationChange = { location ->
                                 viewModel.setDownloadLocation(location)
                             },
-                            isExternalStorageAvailable = viewModel.isExternalStorageAvailable.value
+                            isExternalStorageAvailable = viewModel.isExternalStorageAvailable.value,
+                            playbackSpeed = viewModel.playbackSpeed.value,
+                            onPlaybackSpeedChange = { speed ->
+                                viewModel.setPlaybackSpeed(speed)
+                            }
                         )
                     }
                 }
@@ -606,7 +610,11 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                     isSleepTimerActive = viewModel.isSleepTimerActive.value,
                     sleepTimerRemainingSeconds = viewModel.sleepTimerRemainingSeconds.value,
                     onStartSleepTimer = { viewModel.startSleepTimer() },
-                    onStopSleepTimer = { viewModel.stopSleepTimer() }
+                    onStopSleepTimer = { viewModel.stopSleepTimer() },
+                    onSleepTimerMinutesChange = { minutes -> viewModel.setSleepTimerMinutes(minutes) },
+                    playbackSpeed = viewModel.playbackSpeed.value,
+                    onPlaybackSpeedClick = { viewModel.cyclePlaybackSpeed() },
+                    onPlaybackSpeedChange = { speed -> viewModel.setPlaybackSpeed(speed) }
                 )
             }
         }

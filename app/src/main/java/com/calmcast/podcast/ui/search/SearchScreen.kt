@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calmapps.calmcast.R
 import com.calmcast.podcast.data.Podcast
-import com.mudita.mmd.components.divider.HorizontalDividerMMD
+import com.calmcast.podcast.ui.common.DashedDivider
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 
 @Composable
@@ -135,12 +135,8 @@ fun SearchResultCard(
                 )
             }
 
-            if (showDivider) {
-                if (removeDividers) {
-                    Spacer(modifier = Modifier.height(1.dp))
-                } else {
-                    HorizontalDividerMMD(thickness = 1.dp)
-                }
+            if (showDivider && !removeDividers) {
+                DashedDivider(thickness = 1.dp)
             }
         }
     }

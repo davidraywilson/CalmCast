@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calmapps.calmcast.R
 import com.calmcast.podcast.data.Podcast
-import com.mudita.mmd.components.divider.HorizontalDividerMMD
+import com.calmcast.podcast.ui.common.DashedDivider
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 
 @Composable
@@ -56,10 +56,8 @@ fun SubscriptionsScreen(
                     PodcastCard(podcast = podcast, onClick = { onPodcastClick(podcast) })
 
                     if (index < podcasts.size - 1) {
-                        if (removeDividers) {
-                            Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
-                        } else {
-                            HorizontalDividerMMD(
+                        if (!removeDividers) {
+                            DashedDivider(
                                 modifier = Modifier.padding(start = 16.dp),
                                 thickness = 1.dp
                             )

@@ -12,6 +12,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -19,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.DownloadLocation
-import com.mudita.mmd.components.divider.HorizontalDividerMMD
+import com.calmcast.podcast.ui.common.DashedDivider
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.tabs.PrimaryTabRowMMD
 import com.mudita.mmd.components.tabs.TabMMD
@@ -50,13 +51,18 @@ fun SettingsScreen(
     onSleepTimerMinutesChange: (Int) -> Unit = {},
     downloadLocation: DownloadLocation = DownloadLocation.INTERNAL,
     onDownloadLocationChange: (DownloadLocation) -> Unit = {},
-    isExternalStorageAvailable: Boolean = false
+    isExternalStorageAvailable: Boolean = false,
+    playbackSpeed: Float = 1f,
+    onPlaybackSpeedChange: (Float) -> Unit = {}
 ) {
     val skipOptions = listOf(5, 10, 15, 30)
     val sleepTimerOptions = listOf(5, 10, 15, 30, 45, 60)
     val downloadLocationOptions = listOf(DownloadLocation.INTERNAL, DownloadLocation.EXTERNAL)
     val tabOptions = listOf("Player", "Downloads", "UI")
     var selectedTab by remember { mutableIntStateOf(0) }
+    
+    // Local state to track playback speed for UI updates
+    var localPlaybackSpeed by remember(playbackSpeed) { mutableStateOf(playbackSpeed) }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -97,10 +103,8 @@ fun SettingsScreen(
                                 onCheckedChange = onPictureInPictureToggle
                             )
                         }
-                        if (removeHorizontalDividers) {
-                            Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
-                        } else {
-                            HorizontalDividerMMD(
+                        if (!removeHorizontalDividers) {
+                            DashedDivider(
                                 modifier = Modifier.padding(start = 16.dp),
                                 thickness = 1.dp
                             )
@@ -124,7 +128,7 @@ fun SettingsScreen(
                             )
                         }
                         if (!removeHorizontalDividers) {
-                            HorizontalDividerMMD(
+                            DashedDivider(
                                 modifier = Modifier.padding(start = 16.dp),
                                 thickness = 1.dp
                             )
@@ -182,6 +186,43 @@ fun SettingsScreen(
                             )
                         }
                     }
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
+                        ) {
+                            TextMMD(
+                                text = "Playback speed",
+                                fontSize = 16.sp,
+                            )
+                        }
+                    }
+                    items(com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS) { speed ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    localPlaybackSpeed = speed
+                                    onPlaybackSpeedChange(speed)
+                                }
+                                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = localPlaybackSpeed == speed,
+                                onClick = {
+                                    localPlaybackSpeed = speed
+                                    onPlaybackSpeedChange(speed)
+                                }
+                            )
+                            TextMMD(
+                                text = String.format("%.1f", speed) + "x",
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
                 }
 
                 if (selectedTab == 1) {
@@ -202,10 +243,8 @@ fun SettingsScreen(
                                 onCheckedChange = onAutoDownloadToggle
                             )
                         }
-                        if (removeHorizontalDividers) {
-                            Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
-                        } else {
-                            HorizontalDividerMMD(
+                        if (!removeHorizontalDividers) {
+                            DashedDivider(
                                 modifier = Modifier.padding(start = 16.dp),
                                 thickness = 1.dp
                             )
@@ -282,10 +321,8 @@ fun SettingsScreen(
                                 onCheckedChange = onKeepScreenOnToggle
                             )
                         }
-                        if (removeHorizontalDividers) {
-                            Spacer(modifier = Modifier.height(1.dp).padding(start = 16.dp))
-                        } else {
-                            HorizontalDividerMMD(
+                        if (!removeHorizontalDividers) {
+                            DashedDivider(
                                 modifier = Modifier.padding(start = 16.dp),
                                 thickness = 1.dp
                             )
@@ -309,7 +346,7 @@ fun SettingsScreen(
                             )
                         }
                         if (!removeHorizontalDividers) {
-                            HorizontalDividerMMD(
+                            DashedDivider(
                                 modifier = Modifier.padding(start = 16.dp),
                                 thickness = 1.dp
                             )

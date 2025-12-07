@@ -1,11 +1,16 @@
 package com.calmcast.podcast.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Pause
@@ -28,13 +33,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calmcast.podcast.data.Episode
+import com.calmcast.podcast.ui.common.DashedDivider
 import com.calmcast.podcast.utils.DateTimeFormatter
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
+import com.mudita.mmd.components.menus.DropdownMenuItemMMD
+import com.mudita.mmd.components.menus.DropdownMenuMMD
 import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
 import com.mudita.mmd.components.slider.SliderMMD
 import com.mudita.mmd.components.switcher.SwitchMMD
+import com.mudita.mmd.components.text.TextMMD
 
 @Composable
 fun MiniPlayer(
@@ -102,6 +111,7 @@ fun MiniPlayer(
     }
 }
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun FullPlayerScreen(
     episode: Episode?,
@@ -120,9 +130,16 @@ fun FullPlayerScreen(
     isSleepTimerActive: Boolean = false,
     sleepTimerRemainingSeconds: Long = 0L,
     onStartSleepTimer: () -> Unit = {},
-    onStopSleepTimer: () -> Unit = {}
+    onStopSleepTimer: () -> Unit = {},
+    onSleepTimerMinutesChange: (Int) -> Unit = {},
+    playbackSpeed: Float = 1f,
+    onPlaybackSpeedClick: () -> Unit = {},
+    onPlaybackSpeedChange: (Float) -> Unit = {}
 ) {
     if (episode == null) return
+    
+    var speedMenuExpanded by remember { mutableStateOf(false) }
+    var sleepMenuExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -347,25 +364,91 @@ fun FullPlayerScreen(
                 }
 
                 Column(
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        if (isSleepTimerActive) {
-                            onStopSleepTimer()
-                        } else {
-                            onStartSleepTimer()
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { onPlaybackSpeedClick() },
+                                onLongPress = { speedMenuExpanded = true }
+                            )
+                        }
+                ) {
+                    Box {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = String.format("%.1f", playbackSpeed) + "x",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        DropdownMenuMMD(
+                            expanded = speedMenuExpanded,
+                            onDismissRequest = { speedMenuExpanded = false }
+                        ) {
+                            com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.forEach { speed ->
+                                DropdownMenuItemMMD(
+                                    text = { TextMMD(String.format("%.2f", speed) + "x") },
+                                    onClick = {
+                                        onPlaybackSpeedChange(speed)
+                                        speedMenuExpanded = false
+                                    }
+                                )
+
+                                if (speed != com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.last()) {
+                                    DashedDivider()
+                                }
+                            }
                         }
                     }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .pointerInput(isSleepTimerActive) {
+                            detectTapGestures(
+                                onTap = {
+                                    if (isSleepTimerActive) {
+                                        onStopSleepTimer()
+                                    } else {
+                                        onStartSleepTimer()
+                                    }
+                                },
+                                onLongPress = { sleepMenuExpanded = true }
+                            )
+                        }
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = if (isSleepTimerActive) Icons.Outlined.Bedtime else Icons.Outlined.BedtimeOff,
-                            contentDescription = if (isSleepTimerActive) "Sleep timer active - click to turn off" else "Sleep timer off - click to turn on",
-                            modifier = Modifier.size(24.dp)
-                        )
+                    Box() {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = if (isSleepTimerActive) Icons.Outlined.Bedtime else Icons.Outlined.BedtimeOff,
+                                contentDescription = if (isSleepTimerActive) "Sleep timer active - long press for options" else "Sleep timer off - long press for options",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        DropdownMenuMMD(
+                            expanded = sleepMenuExpanded,
+                            onDismissRequest = { sleepMenuExpanded = false }
+                        ) {
+                            com.calmcast.podcast.data.SettingsManager.SLEEP_TIMER_OPTIONS.forEach { minutes ->
+                                DropdownMenuItemMMD(
+                                    text = { TextMMD(if (minutes == 60) "1 hour" else "$minutes min") },
+                                    onClick = {
+                                        onSleepTimerMinutesChange(minutes)
+                                        onStartSleepTimer()
+                                        sleepMenuExpanded = false
+                                    }
+                                )
+
+                                if (minutes != com.calmcast.podcast.data.SettingsManager.SLEEP_TIMER_OPTIONS.last()) {
+                                    DashedDivider()
+                                }
+                            }
+                        }
                     }
                 }
             }
