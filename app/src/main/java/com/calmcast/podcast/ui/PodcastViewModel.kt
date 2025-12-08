@@ -494,10 +494,10 @@ class PodcastViewModel(
             _subscriptions.value = _subscriptions.value.map { podcast ->
                 if (podcast.id == podcastId) podcast.copy(newEpisodeCount = 0, lastViewedAt = now) else podcast
             }
-            
-            // First, check if podcast exists in DB. If not, try to find it from search results
-            val podcast = podcastDao.getPodcast(podcastId)
-            
+
+            // Ensure podcast exists in DB. If not, try to find it from search results
+            var podcast = podcastDao.getPodcast(podcastId)
+
             if (podcast == null) {
                 // Podcast not in DB - might be from search results
                 // Try to find it in current search results
@@ -505,35 +505,80 @@ class PodcastViewModel(
                 if (searchResult != null) {
                     // Save it to DB so we can fetch details
                     podcastDao.insertPodcast(searchResult)
+                    podcast = searchResult
                 } else {
                     Log.e(TAG, "Podcast not found in search results either")
                 }
             }
-            
-            repository.getPodcastDetails(podcastId).collect { result ->
-                result.onSuccess { podcastWithEpisodes ->
-                    _currentPodcastDetails.value = podcastWithEpisodes
-                    podcastWithEpisodes?.let { details ->
-                        val episodeIds = details.episodes.map { it.id }
-                        val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
-                        // Merge new positions with existing cache instead of replacing
-                        _playbackPositions.value = _playbackPositions.value + positions.associateBy { it.episodeId }
-                    }
-                    _episodesLoading.value = false
-                }.onFailure { exception ->
-                    Log.e(TAG, "Error fetching podcast details", exception)
-                    when (exception) {
-                        is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
-                        is FeedGoneException -> {
-                            // Check if it's a 403 error
-                            val errorCode = if (exception.message?.contains("403") == true) 403 else 410
-                            val message = exception.message ?: "Podcast feed unavailable"
-                            _detailError.value = errorCode to message
-                        }
-                        else -> _errorMessage.value = exception.message
-                    }
-                    _episodesLoading.value = false
+
+            // Reload from DB to make sure we have the latest persisted version
+            podcast = podcastDao.getPodcast(podcastId) ?: podcast
+
+            // Immediately expose podcast details (without waiting for episodes)
+            if (podcast != null) {
+                val isSubscribed = repository.isSubscribed(podcastId)
+                val initialEpisodes = if (isSubscribed) {
+                    // For followed podcasts, show any cached episodes right away
+                    podcastDao.getEpisodesForPodcast(podcastId)
+                } else {
+                    // For non-followed podcasts, we'll fetch a fresh list from iTunes
+                    emptyList()
                 }
+                _currentPodcastDetails.value = PodcastWithEpisodes(podcast, initialEpisodes)
+            }
+
+            try {
+                val isSubscribed = repository.isSubscribed(podcastId)
+                val hasLocalEpisodes = podcastDao.getEpisodesForPodcast(podcastId).isNotEmpty()
+
+                if (isSubscribed && hasLocalEpisodes) {
+                    // Already showing cached episodes for a followed podcast – nothing more to load.
+                    val currentDetails = _currentPodcastDetails.value
+                    if (currentDetails != null && currentDetails.episodes.isNotEmpty()) {
+                        val episodeIds = currentDetails.episodes.map { it.id }
+                        val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
+                        _playbackPositions.value =
+                            _playbackPositions.value + positions.associateBy { it.episodeId }
+                    }
+                    _episodesLoading.value = false
+                    return@launch
+                }
+
+                // If it's not followed OR we don't have episodes in the DB,
+                // fetch a fresh list from iTunes (via repository helper).
+                repository.fetchAndUpdateEpisodes(
+                    podcastId = podcastId,
+                    skipCache = !isSubscribed || !hasLocalEpisodes
+                ).collect { result ->
+                    result.onSuccess { podcastWithEpisodes ->
+                        _currentPodcastDetails.value = podcastWithEpisodes
+                        podcastWithEpisodes?.let { details ->
+                            val episodeIds = details.episodes.map { it.id }
+                            val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
+                            // Merge new positions with existing cache instead of replacing
+                            _playbackPositions.value =
+                                _playbackPositions.value + positions.associateBy { it.episodeId }
+                        }
+                        _episodesLoading.value = false
+                    }.onFailure { exception ->
+                        Log.e(TAG, "Error fetching podcast details", exception)
+                        when (exception) {
+                            is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
+                            is FeedGoneException -> {
+                                // Check if it's a 403 error
+                                val errorCode = if (exception.message?.contains("403") == true) 403 else 410
+                                val message = exception.message ?: "Podcast feed unavailable"
+                                _detailError.value = errorCode to message
+                            }
+                            else -> _errorMessage.value = exception.message
+                        }
+                        _episodesLoading.value = false
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception in fetchPodcastDetails", e)
+                _errorMessage.value = e.message
+                _episodesLoading.value = false
             }
         }
     }

@@ -3,9 +3,11 @@ package com.calmcast.podcast.data
 import android.util.Log
 import com.calmcast.podcast.api.ItunesApiService
 import com.calmcast.podcast.utils.DateTimeFormatter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import java.util.Date
 
 class PodcastRepository(
@@ -127,78 +129,81 @@ class PodcastRepository(
         }
     }
 
-    fun fetchAndUpdateEpisodes(podcastId: String, skipCache: Boolean = false): Flow<Result<PodcastWithEpisodes?>> = flow<Result<PodcastWithEpisodes?>> {
-        Log.d("PodcastRepository", "fetchAndUpdateEpisodes called for $podcastId (skipCache=$skipCache)")
-        
-        val podcast = podcastDao.getPodcast(podcastId)
-        if (podcast == null || podcast.feedUrl == null) {
-            emit(Result.failure(Exception("Podcast not found or no feed URL available")))
-            return@flow
-        }
-        
-        if (!skipCache) {
-            val cachedEpisodes = podcastDao.getEpisodesForPodcast(podcast.id)
-            if (cachedEpisodes.isNotEmpty()) {
-                Log.d("PodcastRepository", "Returning ${cachedEpisodes.size} cached episodes from DB for ${podcast.title}")
-                emit(Result.success(PodcastWithEpisodes(podcast, cachedEpisodes)))
+    fun fetchAndUpdateEpisodes(podcastId: String, skipCache: Boolean = false): Flow<Result<PodcastWithEpisodes?>> =
+        flow<Result<PodcastWithEpisodes?>> {
+            Log.d("PodcastRepository", "fetchAndUpdateEpisodes called for $podcastId (skipCache=$skipCache)")
+
+            val podcast = podcastDao.getPodcast(podcastId)
+            if (podcast == null || podcast.feedUrl == null) {
+                emit(Result.failure(Exception("Podcast not found or no feed URL available")))
                 return@flow
             }
-        }
-        val result = apiService.getPodcastDetails(podcastId = podcastId, feedUrl = podcast.feedUrl)
-        result.fold(
-            onSuccess = { response ->
-                val existingEpisodeIds = podcastDao.getEpisodeIdsByPodcast(podcast.id).toSet()
-                
-                val episodes = response.episodes.map { episodeResult ->
-                    val stableId = "${podcast.id}|${episodeResult.title}|${episodeResult.audioUrl}".hashCode().toString()
-                    Episode(
-                        id = stableId,
-                        podcastId = podcast.id,
-                        podcastTitle = podcast.title,
-                        title = episodeResult.title,
-                        description = episodeResult.description,
-                        publishDate = episodeResult.pubDate,
-                        publishDateMillis = DateTimeFormatter.parseDateToMillis(episodeResult.pubDate) ?: 0L,
-                        duration = episodeResult.duration,
-                        audioUrl = episodeResult.audioUrl
-                    )
-                }
-                
-                val newEpisodes = episodes.filterNot { existingEpisodeIds.contains(it.id) }
 
-                if (newEpisodes.isNotEmpty()) {
-                    podcastDao.insertEpisodes(newEpisodes)
+            if (!skipCache) {
+                val cachedEpisodes = podcastDao.getEpisodesForPodcast(podcast.id)
+                if (cachedEpisodes.isNotEmpty()) {
+                    Log.d("PodcastRepository", "Returning ${cachedEpisodes.size} cached episodes from DB for ${podcast.title}")
+                    emit(Result.success(PodcastWithEpisodes(podcast, cachedEpisodes)))
+                    return@flow
                 }
-
-                val viewedCutoff = podcast.lastViewedAt
-                val unseenCount = if (skipCache && viewedCutoff > 0) {
-                    newEpisodes.count { ep ->
-                        val millis = DateTimeFormatter.parseDateToMillis(ep.publishDate)
-                        millis?.let { it > viewedCutoff } ?: true
-                    }
-                } else 0
-
-                val updatedPodcast = podcast.copy(
-                    episodeCount = response.episodes.size,
-                    description = if (response.description.isNotEmpty()) response.description else podcast.description,
-                    newEpisodeCount = if (skipCache) podcast.newEpisodeCount + unseenCount else podcast.newEpisodeCount
-                )
-                podcastDao.insertPodcast(updatedPodcast)
-                
-                val existingEpisodes = podcastDao.getEpisodesForPodcast(podcast.id).filterNot { ep ->
-                    newEpisodes.any { it.id == ep.id }
-                }
-                val allEpisodes = (newEpisodes + existingEpisodes).sortedByDescending { it.publishDateMillis }
-                val podcastWithEpisodes = PodcastWithEpisodes(updatedPodcast, allEpisodes)
-                emit(Result.success(podcastWithEpisodes))
-            },
-            onFailure = { exception ->
-                Log.e("PodcastRepository", "Error fetching podcast episodes", exception)
-                emit(Result.failure(exception))
             }
-        )
-    }.catch { e -> 
-        Log.e("PodcastRepository", "Exception in fetchAndUpdateEpisodes", e)
-        emit(Result.failure<PodcastWithEpisodes?>(e)) 
-    }
+            val result = apiService.getPodcastDetails(podcastId = podcastId, feedUrl = podcast.feedUrl)
+            result.fold(
+                onSuccess = { response ->
+                    val existingEpisodeIds = podcastDao.getEpisodeIdsByPodcast(podcast.id).toSet()
+
+                    val episodes = response.episodes.map { episodeResult ->
+                        val stableId = "${podcast.id}|${episodeResult.title}|${episodeResult.audioUrl}".hashCode().toString()
+                        Episode(
+                            id = stableId,
+                            podcastId = podcast.id,
+                            podcastTitle = podcast.title,
+                            title = episodeResult.title,
+                            description = episodeResult.description,
+                            publishDate = episodeResult.pubDate,
+                            publishDateMillis = DateTimeFormatter.parseDateToMillis(episodeResult.pubDate) ?: 0L,
+                            duration = episodeResult.duration,
+                            audioUrl = episodeResult.audioUrl
+                        )
+                    }
+
+                    val newEpisodes = episodes.filterNot { existingEpisodeIds.contains(it.id) }
+
+                    if (newEpisodes.isNotEmpty()) {
+                        podcastDao.insertEpisodes(newEpisodes)
+                    }
+
+                    val viewedCutoff = podcast.lastViewedAt
+                    val unseenCount = if (skipCache && viewedCutoff > 0) {
+                        newEpisodes.count { ep ->
+                            val millis = DateTimeFormatter.parseDateToMillis(ep.publishDate)
+                            millis?.let { it > viewedCutoff } ?: true
+                        }
+                    } else 0
+
+                    val updatedPodcast = podcast.copy(
+                        episodeCount = response.episodes.size,
+                        description = if (response.description.isNotEmpty()) response.description else podcast.description,
+                        newEpisodeCount = if (skipCache) podcast.newEpisodeCount + unseenCount else podcast.newEpisodeCount
+                    )
+                    podcastDao.insertPodcast(updatedPodcast)
+
+                    val existingEpisodes = podcastDao.getEpisodesForPodcast(podcast.id).filterNot { ep ->
+                        newEpisodes.any { it.id == ep.id }
+                    }
+                    val allEpisodes = (newEpisodes + existingEpisodes).sortedByDescending { it.publishDateMillis }
+                    val podcastWithEpisodes = PodcastWithEpisodes(updatedPodcast, allEpisodes)
+                    emit(Result.success(podcastWithEpisodes))
+                },
+                onFailure = { exception ->
+                    Log.e("PodcastRepository", "Error fetching podcast episodes", exception)
+                    emit(Result.failure(exception))
+                }
+            )
+        }
+            .catch { e ->
+                Log.e("PodcastRepository", "Exception in fetchAndUpdateEpisodes", e)
+                emit(Result.failure<PodcastWithEpisodes?>(e))
+            }
+            .flowOn(Dispatchers.IO)
 }

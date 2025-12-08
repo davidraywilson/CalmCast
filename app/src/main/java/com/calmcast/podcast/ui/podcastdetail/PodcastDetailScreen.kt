@@ -96,52 +96,54 @@ fun PodcastDetailScreen(
         }
     }
 
-    if (isLoadingEpisodes) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicatorMMD()
-        }
-    } else {
-        LazyColumnMMD(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 16.dp, end = 0.dp, top = 0.dp, bottom = 0.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+    val downloadsByEpisodeId = remember(downloads) { downloads.associateBy { it.episode.id } }
 
-                SafeHtmlText(
-                    html = podcast.description,
-                    maxLines = 2,
-                    onTruncated = { isTruncated -> isDescriptionTruncated = isTruncated }
+    LazyColumnMMD(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 16.dp, end = 0.dp, top = 0.dp, bottom = 0.dp)
+    ) {
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SafeHtmlText(
+                html = podcast.description,
+                maxLines = 2,
+                onTruncated = { isTruncated -> isDescriptionTruncated = isTruncated }
+            )
+
+            if (isDescriptionTruncated) {
+                Text(
+                    text = "...read more",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { showDescriptionModal.value = true }
                 )
+            }
 
-                if (isDescriptionTruncated) {
-                    Text(
-                        text = "...read more",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable { showDescriptionModal.value = true }
-                    )
-                }
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Episodes (${podcast.episodeCount})",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Episodes (${podcast.episodeCount})",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    if (isLoadingEpisodes) {
+                        CircularProgressIndicatorMMD(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(end = 8.dp)
+                        )
+                    }
                     IconButton(
                         onClick = onRefreshClick,
                         modifier = Modifier.size(20.dp)
@@ -153,13 +155,28 @@ fun PodcastDetailScreen(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                HorizontalDividerMMD(thickness = 3.dp)
             }
 
-            if (episodes.isEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            HorizontalDividerMMD(thickness = 3.dp)
+        }
+
+        when {
+            isLoadingEpisodes && episodes.isEmpty() -> {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicatorMMD()
+                    }
+                }
+            }
+
+            episodes.isEmpty() -> {
                 item {
                     Box(
                         modifier = Modifier
@@ -170,9 +187,11 @@ fun PodcastDetailScreen(
                         Text(stringResource(R.string.no_episodes))
                     }
                 }
-            } else {
+            }
+
+            else -> {
                 itemsIndexed(episodes, key = { _, episode -> episode.id }) { index, episode ->
-                    val download = downloads.find { it.episode.id == episode.id }
+                    val download = downloadsByEpisodeId[episode.id]
                     val playbackPosition = playbackPositions[episode.id]
                     val isCurrentlyPlaying = episode.id == currentPlayingEpisodeId
                     EpisodeItem(
@@ -214,8 +233,14 @@ fun EpisodeItem(
     onResumeClick: () -> Unit = {},
     removeDividers: Boolean = false,
     customPaddingValues: PaddingValues? = null
-) {
+    ) {
     val showDescriptionModal = remember { mutableStateOf(false) }
+    val formattedDate = remember(episode.id, episode.publishDate) {
+        DateTimeFormatter.formatPublishDate(episode.publishDate)
+    }
+    val formattedDuration = remember(episode.id, episode.duration) {
+        DateTimeFormatter.formatDurationFromString(episode.duration)
+    }
 
     if (showDescriptionModal.value && !episode.description.isNullOrEmpty()) {
         ModalBottomSheetMMD(
@@ -380,12 +405,12 @@ fun EpisodeItem(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = DateTimeFormatter.formatPublishDate(episode.publishDate),
+                        text = formattedDate,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Normal
                     )
                     Text(
-                        text = DateTimeFormatter.formatDurationFromString(episode.duration),
+                        text = formattedDuration,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Normal
                     )

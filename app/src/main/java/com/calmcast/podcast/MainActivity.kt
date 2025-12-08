@@ -434,6 +434,9 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                         SubscriptionsScreen(
                             podcasts = viewModel.subscriptions.value,
                             onPodcastClick = { podcast ->
+                                // Clear any existing podcast details so we don't briefly show the
+                                // previous podcast when navigating to a new one
+                                viewModel.clearPodcastDetails()
                                 navController.navigate("detail/${podcast.id}")
                             },
                             showAddRSSModal = showAddRSSModal.value,
@@ -467,6 +470,9 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             searchQuery = viewModel.searchQuery.value,
                             searchResults = viewModel.searchResults.value,
                             onPodcastClick = { podcast ->
+                                // Clear any existing podcast details so we don't briefly show the
+                                // previous podcast when navigating to a new one
+                                viewModel.clearPodcastDetails()
                                 navController.navigate("detail/${podcast.id}")
                             },
                             isFollowed = viewModel::isSubscribed,
@@ -496,12 +502,9 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                         val podcastId = backStackEntry.arguments?.getString("podcastId") ?: return@composable
 
                         LaunchedEffect(podcastId) {
-                            viewModel.fetchPodcastDetails(podcastId)
-                        }
-
-                        DisposableEffect(Unit) {
-                            onDispose {
-                                viewModel.clearPodcastDetails()
+                            val currentDetails = viewModel.currentPodcastDetails.value
+                            if (currentDetails == null || currentDetails.podcast.id != podcastId) {
+                                viewModel.fetchPodcastDetails(podcastId)
                             }
                         }
 
