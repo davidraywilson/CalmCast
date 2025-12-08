@@ -42,4 +42,17 @@ object Migrations {
             )
         }
     }
+
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Add publishDateMillis column to episodes table for fast sorting
+            database.execSQL(
+                "ALTER TABLE episodes ADD COLUMN publishDateMillis INTEGER NOT NULL DEFAULT 0"
+            )
+            // Add episode_publishDateMillis column to downloads table's embedded episode
+            database.execSQL(
+                "ALTER TABLE downloads ADD COLUMN episode_publishDateMillis INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
 }

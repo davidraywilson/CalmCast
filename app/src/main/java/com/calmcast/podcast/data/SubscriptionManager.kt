@@ -17,45 +17,7 @@ class SubscriptionManager(private val context: Context, private val podcastDao: 
     companion object {
         private const val TAG = "SubscriptionManager"
         private const val PREFS_NAME = "calmcast_subscriptions"
-        private const val KEY_SUBSCRIPTIONS = "subscriptions_list"
         private const val KEY_SUBSCRIPTION_IDS = "subscription_ids"
-        private const val KEY_TADDY_MIGRATED = "taddy_migration_complete"
-    }
-
-    init {
-        // Migrate from old format to new format on first load
-        migrateFromOldFormat()
-    }
-
-    private fun migrateFromOldFormat() {
-        // Handle migration from Podchaser
-        if (!sharedPreferences.getBoolean(KEY_TADDY_MIGRATED, false)) {
-            sharedPreferences.edit()
-                .remove(KEY_SUBSCRIPTIONS)
-                .putBoolean(KEY_TADDY_MIGRATED, true)
-                .apply()
-            return
-        }
-
-        // Migrate from old Podcast object format to ID-only format
-        if (!sharedPreferences.getBoolean("subscription_ids_migrated", false)) {
-            try {
-                val oldJson = sharedPreferences.getString(KEY_SUBSCRIPTIONS, null)
-                if (oldJson != null) {
-                    val type = object : TypeToken<List<Podcast>>() {}.type
-                    val podcasts = gson.fromJson<List<Podcast>?>(oldJson, type) ?: emptyList()
-                    val ids = podcasts.map { it.id }
-                    saveSubscriptionIds(ids)
-                    Log.d(TAG, "Migrated ${ids.size} subscriptions from old format to ID-only format")
-                }
-                sharedPreferences.edit()
-                    .remove(KEY_SUBSCRIPTIONS)
-                    .putBoolean("subscription_ids_migrated", true)
-                    .apply()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error migrating subscriptions", e)
-            }
-        }
     }
 
     suspend fun addSubscription(podcast: Podcast): Boolean = withContext(Dispatchers.IO) {
@@ -78,17 +40,13 @@ class SubscriptionManager(private val context: Context, private val podcastDao: 
 
     suspend fun removeSubscription(podcastId: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "removeSubscription called for $podcastId")
             val subscriptionIds = getSubscriptionIds().toMutableList()
-            Log.d(TAG, "Current subscriptions before removal: ${subscriptionIds.size} - $subscriptionIds")
             val initialSize = subscriptionIds.size
             subscriptionIds.remove(podcastId)
             val removed = subscriptionIds.size < initialSize
-            Log.d(TAG, "Remove result for $podcastId: $removed, subscriptions after removal: ${subscriptionIds.size} - $subscriptionIds")
 
             if (removed) {
                 saveSubscriptionIds(subscriptionIds)
-                Log.d(TAG, "Saved updated subscriptions")
             }
             removed
         } catch (e: Exception) {
@@ -149,33 +107,6 @@ class SubscriptionManager(private val context: Context, private val podcastDao: 
         } catch (e: Exception) {
             Log.e(TAG, "Error getting subscription IDs", e)
             emptyList()
-        }
-    }
-
-    suspend fun getPodcastById(podcastId: String): PodcastWithEpisodes? = withContext(Dispatchers.IO) {
-        try {
-            val subscriptionIds = getSubscriptionIds()
-            if (subscriptionIds.contains(podcastId)) {
-                podcastDao.getPodcastWithEpisodes(podcastId)
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting podcast by ID", e)
-            null
-        }
-    }
-
-    suspend fun clearAllSubscriptions(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            sharedPreferences.edit()
-                .remove(KEY_SUBSCRIPTION_IDS)
-                .remove(KEY_SUBSCRIPTIONS)  // Also remove old format if it exists
-                .apply()
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error clearing subscriptions", e)
-            false
         }
     }
 }

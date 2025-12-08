@@ -18,7 +18,7 @@ interface PodcastDao {
     suspend fun updateEpisodeDownloadPath(episodeId: String, downloadPath: String)
 
     @Transaction
-    @Query("SELECT * FROM episodes WHERE podcastId = :podcastId ORDER BY publishDate DESC")
+    @Query("SELECT * FROM episodes WHERE podcastId = :podcastId ORDER BY publishDateMillis DESC")
     suspend fun getEpisodesForPodcast(podcastId: String): List<Episode>
 
     @Transaction

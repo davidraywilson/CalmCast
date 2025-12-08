@@ -28,7 +28,6 @@ object AppLifecycleTracker {
 
     fun initialize(
         subscriptionMgr: SubscriptionManager,
-        downloadManager: AndroidDownloadManager,
         settings: SettingsManager,
         dao: PodcastDao,
         refreshCallback: (() -> Unit)? = null
@@ -41,27 +40,19 @@ object AppLifecycleTracker {
             LifecycleEventObserver { _, event ->
                 when (event) {
                     Lifecycle.Event.ON_START -> {
-                        Log.d(TAG, "App entered foreground. Triggering episode refresh for subscribed podcasts.")
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 val settings = settingsManager ?: return@launch
                                 val subMgr = subscriptionManager ?: return@launch
                                 val dao = podcastDao ?: return@launch
                                 
-                                // Try to use the callback first (from ViewModel)
                                 if (onRefreshCallback != null) {
-                                    Log.d(TAG, "Using ViewModel refresh callback")
                                     onRefreshCallback?.invoke()
                                 } else {
-                                    // Fallback: refresh directly using repository if callback not set yet
-                                    Log.d(TAG, "Callback not set, using direct repository refresh")
                                     refreshAllPodcastEpisodesDirectly(subMgr, dao)
                                 }
                                 
-                                // Record the refresh time
                                 settings.setLastEpisodeRefreshTime(System.currentTimeMillis())
-                                Log.d(TAG, "Episode refresh completed. Last refresh time recorded.")
-                                
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error refreshing episodes", e)
                             }
@@ -85,25 +76,19 @@ object AppLifecycleTracker {
                 null
             )
             val subscriptions = subscriptionManager.getSubscriptions()
-            
-            Log.d(TAG, "Directly refreshing episodes for ${subscriptions.size} subscribed podcasts")
-            
+
             for (podcastWithEpisodes in subscriptions) {
                 val podcast = podcastWithEpisodes.podcast
                 try {
-                    Log.d(TAG, "Fetching episodes for: ${podcast.title}")
                     try {
                         repository.getPodcastDetails(podcast.id, forceRefresh = true).first()
-                        Log.d(TAG, "Episode fetch complete for ${podcast.title}")
                     } catch (e: Exception) {
-                        Log.w(TAG, "Error refreshing episodes for ${podcast.title}", e)
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                 }
             }
             
-            Log.d(TAG, "Direct episode refresh completed")
         } catch (e: Exception) {
             Log.e(TAG, "Error in refreshAllPodcastEpisodesDirectly", e)
         }

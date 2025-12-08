@@ -63,7 +63,6 @@ object StorageManager {
                 val ok = isRemovable && state == Environment.MEDIA_MOUNTED && dir.canWrite()
                 if (ok) {
                     dir.mkdirs()
-                    Log.d(TAG, "Using removable external storage: ${dir.absolutePath}")
                 }
                 ok
             }

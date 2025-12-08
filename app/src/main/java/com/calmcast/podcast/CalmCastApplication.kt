@@ -39,7 +39,6 @@ class CalmCastApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize centralized dependencies
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
@@ -52,12 +51,11 @@ class CalmCastApplication : Application(), Configuration.Provider {
         subscriptionManager = SubscriptionManager(this, podcastDao)
         downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, podcastDao, settingsManager)
 
-        // Clean up any invalid download records from previous versions
         CoroutineScope(Dispatchers.IO).launch {
             downloadDao.deleteInvalidDownloads()
         }
 
-        AppLifecycleTracker.initialize(subscriptionManager, downloadManager, settingsManager, podcastDao)
+        AppLifecycleTracker.initialize(subscriptionManager, settingsManager, podcastDao)
         setupNewEpisodeWorker()
     }
 

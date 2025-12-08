@@ -56,6 +56,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.ui.FullPlayerScreen
@@ -416,9 +418,19 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                 NavHost(
                     navController = navController,
                     startDestination = "subscriptions",
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = Modifier.padding(paddingValues),
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None }
                 ) {
-                    composable("subscriptions") {
+                    composable(
+                        "subscriptions",
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         SubscriptionsScreen(
                             podcasts = viewModel.subscriptions.value,
                             onPodcastClick = { podcast ->
@@ -444,7 +456,13 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }
-                    composable("search") {
+                    composable(
+                        "search",
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         SearchScreen(
                             searchQuery = viewModel.searchQuery.value,
                             searchResults = viewModel.searchResults.value,
@@ -468,7 +486,13 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }
-                    composable("detail/{podcastId}") { backStackEntry ->
+                    composable(
+                        "detail/{podcastId}",
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) { backStackEntry ->
                         val podcastId = backStackEntry.arguments?.getString("podcastId") ?: return@composable
 
                         LaunchedEffect(podcastId) {
@@ -529,7 +553,13 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             )
                         }
                     }
-                    composable("downloads") {
+                    composable(
+                        "downloads",
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         val downloads = viewModel.downloads.value.sortedByDescending { (it.episode.publishDate?.toLongOrNull() ?: 0L) }
                         val playbackPositions = viewModel.playbackPositions.value
                         DownloadsScreen(
@@ -555,7 +585,13 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }
-                    composable("settings") {
+                    composable(
+                        "settings",
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None }
+                    ) {
                         SettingsScreen(
                     settingsManager = settingsManager,
                             isPictureInPictureEnabled = viewModel.isPictureInPictureEnabled.value,

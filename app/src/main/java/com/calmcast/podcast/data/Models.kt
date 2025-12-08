@@ -30,6 +30,7 @@ data class Episode(
     val title: String,
     val description: String? = null,
     val publishDate: String,
+    val publishDateMillis: Long = 0L,
     val duration: String,
     val audioUrl: String,
     val downloadedPath: String? = null

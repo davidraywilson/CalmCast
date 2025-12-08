@@ -360,7 +360,6 @@ class PodcastViewModel(
             try {
                 // Get subscription IDs from SharedPreferences
                 val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
-                Log.d(TAG, "loadInitialData: found ${subscriptionIds.size} subscriptions")
                 
                 // Load podcasts from DB that are in the subscription list, sorted by latest episode
                 val allPodcasts = podcastDao.getSubscribedPodcastsSortedByLatestEpisode()
@@ -447,11 +446,8 @@ class PodcastViewModel(
 
     fun unsubscribeFromPodcast(podcastId: String) {
         viewModelScope.launch {
-            Log.d(TAG, "unsubscribeFromPodcast called for $podcastId")
             repository.unsubscribeFromPodcast(podcastId).onSuccess {
-                Log.d(TAG, "unsubscribeFromPodcast succeeded for $podcastId")
                 _subscriptions.value = _subscriptions.value.filter { it.id != podcastId }
-                Log.d(TAG, "subscriptions updated, new count: ${_subscriptions.value.size}")
             }.onFailure { error ->
                 Log.e(TAG, "unsubscribeFromPodcast failed for $podcastId", error)
                 _errorMessage.value = error.message
@@ -492,7 +488,6 @@ class PodcastViewModel(
         _episodesLoading.value = true
         _detailError.value = null
         viewModelScope.launch {
-            Log.d(TAG, "fetchPodcastDetails called for $podcastId")
             // Clear new episode count and stamp last viewed time since user is viewing it
             val now = System.currentTimeMillis()
             podcastDao.resetNewCountAndStampViewed(podcastId, now)
@@ -502,16 +497,13 @@ class PodcastViewModel(
             
             // First, check if podcast exists in DB. If not, try to find it from search results
             val podcast = podcastDao.getPodcast(podcastId)
-            Log.d(TAG, "Podcast from DB: ${podcast?.title}")
             
             if (podcast == null) {
                 // Podcast not in DB - might be from search results
                 // Try to find it in current search results
-                Log.d(TAG, "Looking in search results (${_searchResults.value.size} results)")
                 val searchResult = _searchResults.value.find { it.id == podcastId }
                 if (searchResult != null) {
                     // Save it to DB so we can fetch details
-                    Log.d(TAG, "Found in search results, saving to DB: ${searchResult.title}, feedUrl: ${searchResult.feedUrl}")
                     podcastDao.insertPodcast(searchResult)
                 } else {
                     Log.e(TAG, "Podcast not found in search results either")
@@ -520,7 +512,6 @@ class PodcastViewModel(
             
             repository.getPodcastDetails(podcastId).collect { result ->
                 result.onSuccess { podcastWithEpisodes ->
-                    Log.d(TAG, "Got podcast details with ${podcastWithEpisodes?.episodes?.size} episodes")
                     _currentPodcastDetails.value = podcastWithEpisodes
                     podcastWithEpisodes?.let { details ->
                         val episodeIds = details.episodes.map { it.id }
@@ -583,8 +574,6 @@ class PodcastViewModel(
                 val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
                 val newCounts = mutableMapOf<String, Int>()
                 
-                Log.d(TAG, "Refreshing episodes for ${subscribedPodcasts.size} subscribed podcasts")
-                
                 for (podcast in subscribedPodcasts) {
                     try {
                         val beforeCount = podcast.newEpisodeCount
@@ -594,7 +583,6 @@ class PodcastViewModel(
                         val afterPodcast = podcastDao.getPodcast(podcast.id)
                         val delta = (afterPodcast?.newEpisodeCount ?: 0) - beforeCount
                         if (delta > 0) {
-                            Log.d(TAG, "Found $delta new episodes for ${podcast.title}")
                             newCounts[podcast.id] = delta
                         }
                     } catch (e: Exception) {
@@ -609,7 +597,6 @@ class PodcastViewModel(
                 _subscriptions.value = updatedSubscriptions
                 
                 _newEpisodeCounts.value = newCounts
-                Log.d(TAG, "Episode refresh completed. New episodes found in ${newCounts.size} podcasts")
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing all podcast episodes", e)
             }
@@ -626,13 +613,10 @@ class PodcastViewModel(
                 )
             }
             
-            Log.d(TAG, "playEpisode() called for: ${episode.title}")
             var episodeToPlay = episode
             val download = _downloads.value.find { it.episode.id == episode.id }
             if (download?.downloadUri != null) {
                 episodeToPlay = episode.copy(audioUrl = download.downloadUri)
-                Log.d(TAG, "Playing downloaded episode: ${episode.title}")
-                Log.d(TAG, "Using download URI: ${download.downloadUri}")
             }
 
             var details = currentPodcastDetails.value
@@ -663,7 +647,6 @@ class PodcastViewModel(
                 .build()
 
             val uri = episodeToPlay.audioUrl.toUri()
-            Log.d(TAG, "Playing episode with URI scheme: ${uri.scheme}, path: ${uri.path}")
 
             val mediaItem = MediaItem.Builder()
                 .setUri(episodeToPlay.audioUrl)
@@ -671,7 +654,6 @@ class PodcastViewModel(
                 .setMediaMetadata(mediaMetadata)
                 .build()
 
-            Log.d(TAG, "Playing episode: ${episode.title}, URI: ${episodeToPlay.audioUrl}")
             mediaController?.setMediaItem(mediaItem, lastPosition)
             mediaController?.prepare()
             mediaController?.play()

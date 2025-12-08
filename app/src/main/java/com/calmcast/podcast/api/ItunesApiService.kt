@@ -48,8 +48,7 @@ class ItunesApiService {
         try {
             val encodedQuery = URLEncoder.encode(searchQuery, "UTF-8")
             val url = "$ITUNES_SEARCH_URL?media=podcast&term=$encodedQuery&limit=$limit"
-            Log.d("ItunesApi", "Searching iTunes with URL: $url")
-            
+
             val request = Request.Builder()
                 .url(url)
                 .get()
@@ -68,8 +67,6 @@ class ItunesApiService {
             val resultsArray = jsonObject.getAsJsonArray("results") ?: return@withContext Result.success(
                 ItunesPodcastSearchResponse(results = emptyList())
             )
-            
-            Log.d("ItunesApi", "Found ${resultsArray.size()} results")
 
             val podcasts = resultsArray.mapNotNull { element ->
                 val obj = element.asJsonObject
@@ -90,14 +87,10 @@ class ItunesApiService {
                         feedUrl = feedUrl
                     )
                 } else {
-                    if (trackName != null) {
-                        Log.d("ItunesApi", "Skipping result: $trackName (feedUrl: $feedUrl)")
-                    }
                     null
                 }
             }
             
-            Log.d("ItunesApi", "Returning ${podcasts.size} podcasts with feedUrl")
             Result.success(ItunesPodcastSearchResponse(results = podcasts))
         } catch (e: Exception) {
             Log.e("ItunesApi", "Error searching podcasts", e)
@@ -113,7 +106,6 @@ class ItunesApiService {
                     throw Exception("Feed URL required for podcast details")
                 }
 
-                Log.d("ItunesApi", "Fetching podcast details from feedUrl: $feedUrl")
                 val request = Request.Builder()
                     .url(feedUrl)
                     .get()
@@ -133,10 +125,7 @@ class ItunesApiService {
 
                 val feedBody = response.body?.string()
                     ?: throw Exception("Empty feed response")
-
-                Log.d("ItunesApi", "Parsing RSS feed, size: ${feedBody.length} bytes")
                 val parseResult = parseRssFeed(feedBody)
-                Log.d("ItunesApi", "Parsed ${parseResult.episodes.size} episodes from RSS feed")
                 Result.success(ItunesPodcastDetailsResponse(episodes = parseResult.episodes, description = parseResult.description))
             } catch (e: Exception) {
                 Log.e("ItunesApi", "Error fetching podcast details for $podcastId", e)
@@ -147,7 +136,6 @@ class ItunesApiService {
     suspend fun getPodcastFromRSSUrl(feedUrl: String): Result<CustomRSSPodcast> =
         withContext(Dispatchers.IO) {
             try {
-                Log.d("ItunesApi", "Fetching podcast from RSS URL: $feedUrl")
                 val request = Request.Builder()
                     .url(feedUrl)
                     .get()
@@ -168,11 +156,7 @@ class ItunesApiService {
                 val feedBody = response.body?.string()
                     ?: throw Exception("Empty feed response")
 
-                Log.d("ItunesApi", "Parsing RSS feed, size: ${feedBody.length} bytes")
                 val parseResult = parseRssFeed(feedBody)
-                Log.d("ItunesApi", "Parsed ${parseResult.episodes.size} episodes from RSS feed")
-                
-                // Generate a unique ID based on the feed URL
                 val podcastId = feedUrl.hashCode().toString()
                 
                 val podcast = CustomRSSPodcast(
@@ -266,7 +250,6 @@ class ItunesApiService {
                                 if (inItem && currentAudioUrl.isEmpty()) {
                                     val url = parser.getAttributeValue(null, "url")
                                     val type = parser.getAttributeValue(null, "type")
-                                    // Accept enclosures that are audio type or contain audio file extensions
                                     if (url != null && (type?.contains("audio", ignoreCase = true) == true ||
                                             url.contains(".mp3", ignoreCase = true) ||
                                             url.contains(".m4a", ignoreCase = true))) {
@@ -285,7 +268,6 @@ class ItunesApiService {
                             "item" -> {
                                 if (inItem) {
                                     if (currentTitle.isNotEmpty() && currentAudioUrl.isNotEmpty()) {
-                                        Log.d("ItunesApi", "Adding episode: $currentTitle")
                                         episodes.add(
                                             ItunesEpisodeResult(
                                                 title = currentTitle,
@@ -309,7 +291,6 @@ class ItunesApiService {
                 }
                 eventType = parser.next()
             }
-            Log.d("ItunesApi", "Parsed $itemCount items, found ${episodes.size} valid episodes")
         } catch (e: Exception) {
             Log.e("ItunesApi", "Error parsing RSS feed", e)
         }

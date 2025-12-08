@@ -56,9 +56,7 @@ class AndroidDownloadManager(
 
         val job = CoroutineScope(Dispatchers.IO).launch {
             downloadDao.insert(download)
-            Log.d(TAG, "Starting download for episode: ${episode.title} (${episode.id})")
             try {
-                // Determine if we should resume from an existing partial file
                 val bytesAlready = if (file.exists()) file.length() else 0L
                 val requestBuilder = Request.Builder().url(episode.audioUrl)
                 if (bytesAlready > 0) {
@@ -75,17 +73,13 @@ class AndroidDownloadManager(
                         var bytesCopied = bytesAlready
                         val totalBytes = if (serverBytes > 0) bytesAlready + serverBytes else -1L
                         val appendMode = bytesAlready > 0
-                        if (appendMode) {
-                            Log.d(TAG, "Resuming download for ${episode.title} from byte offset: $bytesAlready")
-                        }
                         
                         body.byteStream().use { input ->
                             FileOutputStream(file, appendMode).use { output ->
-                                val buffer = ByteArray(64 * 1024)  // Increased from 4KB to 64KB for better throughput
+                                val buffer = ByteArray(64 * 1024)
                                 var read = input.read(buffer)
                                 var lastDbUpdateTime = System.currentTimeMillis()
                                 while (read >= 0) {
-                                    // Check if paused
                                     if (pausedDownloads.contains(episodeId)) {
                                         Log.d(TAG, "Download paused for ${episode.title}")
                                         downloadDao.insert(download.copy(status = DownloadStatus.PAUSED, progress = bytesCopied.toFloat() / totalBytes.toFloat(), downloadedBytes = bytesCopied, totalBytes = totalBytes))
@@ -99,7 +93,6 @@ class AndroidDownloadManager(
                                     } else {
                                         -1f // Indeterminate progress
                                     }
-                                    // Throttle database updates to once per second to reduce I/O overhead
                                     val currentTime = System.currentTimeMillis()
                                     if (currentTime - lastDbUpdateTime >= 1000) {
                                         downloadDao.insert(download.copy(status = DownloadStatus.DOWNLOADING, progress = progress, downloadedBytes = bytesCopied, totalBytes = totalBytes))
@@ -110,22 +103,15 @@ class AndroidDownloadManager(
                             }
                         }
 
-                        // Verify download was successful
                         if (totalBytes != -1L && bytesCopied != totalBytes) {
                             Log.w(TAG, "Download incomplete for ${episode.title}: $bytesCopied / $totalBytes bytes")
                             downloadDao.insert(download.copy(status = DownloadStatus.FAILED, progress = 0f))
                             file.delete() // Delete partial file
                         } else {
-                            // Convert file path to proper file:// URI to prevent MalformedURLException
-                            // in ExoPlayer's HttpDataSource when handling local files
                             val fileUri = Uri.fromFile(file).toString()
-                            Log.d(TAG, "Download completed for episode: ${episode.title}, saved to: ${file.absolutePath}")
-                            Log.d(TAG, "Storing file URI: $fileUri")
                             downloadDao.insert(download.copy(status = DownloadStatus.DOWNLOADED, progress = 1f, downloadUri = fileUri, downloadedBytes = bytesCopied, totalBytes = totalBytes))
 
-                            // Update the Episode entity with the download path (store actual file path for File operations)
                             podcastDao?.updateEpisodeDownloadPath(episode.id, file.absolutePath)
-                            Log.d(TAG, "Updated episode ${episode.id} with downloadPath: ${file.absolutePath}")
                         }
                     } else {
                         Log.w(TAG, "No response body for episode: ${episode.title}")
@@ -212,14 +198,10 @@ class AndroidDownloadManager(
             val oldFile = File(baseDir, "${episode.title}.mp3")
             
             if (file.exists()) {
-                Log.d(TAG, "Deleting download file for episode: ${episode.title}")
-                Log.d(TAG, "Deleting file: ${file.absolutePath}")
                 file.delete()
             }
             
-            // Also delete old-format file if it exists
             if (oldFile.exists()) {
-                Log.d(TAG, "Deleting old-format download file: ${oldFile.absolutePath}")
                 oldFile.delete()
             }
         } catch (e: StorageUnavailableException) {
@@ -228,12 +210,8 @@ class AndroidDownloadManager(
         CoroutineScope(Dispatchers.IO).launch {
             val download = downloadDao.getByEpisodeId(episode.id)
             if (download != null) {
-                // Mark as DELETED instead of removing - this prevents auto-re-download
-                // User can still manually re-download (REPLACE will overwrite DELETED status)
                 downloadDao.insert(download.copy(status = DownloadStatus.DELETED, downloadUri = null, progress = 0f, downloadedBytes = 0L, totalBytes = -1L))
-                Log.d(TAG, "Marked download as DELETED for episode: ${episode.title}")
             }
-            // Clear the downloadedPath from the Episode entity
             podcastDao?.updateEpisodeDownloadPath(episode.id, "")
         }
     }

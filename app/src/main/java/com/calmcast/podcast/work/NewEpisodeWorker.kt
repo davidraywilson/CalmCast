@@ -24,10 +24,7 @@ class NewEpisodeWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        Log.d("NewEpisodeWorker", "Starting daily episode refresh.")
-
         if (!settingsManager.isAutoDownloadEnabled()) {
-            Log.d("NewEpisodeWorker", "Auto-download is disabled. Skipping work.")
             return Result.success()
         }
 
@@ -41,7 +38,6 @@ class NewEpisodeWorker(
             
             val subscriptions = subscriptionManager.getSubscriptions()
             if (subscriptions.isEmpty()) {
-                Log.d("NewEpisodeWorker", "No subscriptions to check.")
                 recordRefreshTimestamp()
                 return Result.success()
             }
@@ -58,7 +54,6 @@ class NewEpisodeWorker(
                                 val download = downloadDao.getByEpisodeId(latestEpisode.id)
                                 when {
                                     download == null -> {
-                                        Log.d("NewEpisodeWorker", "Downloading new episode for ${podcast.title}: ${latestEpisode.title}")
                                         downloadManager.startDownload(latestEpisode)
                                     }
                                     download.status.name == "DELETED" -> {
@@ -93,6 +88,5 @@ class NewEpisodeWorker(
      */
     private fun recordRefreshTimestamp() {
         settingsManager.setLastEpisodeRefreshTime(System.currentTimeMillis())
-        Log.d("NewEpisodeWorker", "Recorded episode refresh timestamp: ${System.currentTimeMillis()}")
     }
 }
