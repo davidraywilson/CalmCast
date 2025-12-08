@@ -90,7 +90,6 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
 
 val navItems = listOf(
     Screen.Subscriptions,
-//    Screen.Search,
     Screen.Downloads,
     Screen.Settings
 )
@@ -155,6 +154,15 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
     val playbackPositionDao = database.playbackPositionDao()
     val downloadDao = database.downloadDao()
     val viewModel: PodcastViewModel = viewModel(factory = PodcastViewModelFactory(application, podcastDao, playbackPositionDao, downloadDao, settingsManager))
+
+    DisposableEffect(Unit) {
+        AppLifecycleTracker.setRefreshCallback {
+            viewModel.refreshSubscribedPodcastEpisodes()
+        }
+        onDispose {
+            AppLifecycleTracker.setRefreshCallback(null)
+        }
+    }
 
     LaunchedEffect(Unit) {
         snapshotFlow { viewModel.isPlaying.value }
@@ -274,6 +282,9 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 }
                             },
                             actions = {
+                                // Add subscriptions as a dependency to trigger recomposition
+                                viewModel.subscriptions.value
+                                
                                 if (currentDestination?.route == "subscriptions") {
                                     ButtonMMD(
                                         contentPadding = PaddingValues(0.dp),
@@ -327,8 +338,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                             }
                                         ) {
                                             Icon(
-                                                imageVector = if (isFollowed) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                                contentDescription = if (isFollowed) "Unfollow" else "Follow"
+                                                imageVector = if (viewModel.isSubscribed(podcast.id)) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                                contentDescription = if (viewModel.isSubscribed(podcast.id)) "Unfollow" else "Follow"
                                             )
                                         }
                                     }

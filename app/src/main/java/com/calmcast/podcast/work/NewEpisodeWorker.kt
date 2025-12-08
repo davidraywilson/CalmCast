@@ -49,7 +49,7 @@ class NewEpisodeWorker(
             subscriptions.forEach { podcastWithEpisodes ->
                 val podcast = podcastWithEpisodes.podcast
                 try {
-                    val podcastDetailsResult = repository.getPodcastDetails(podcast.id).first()
+                    val podcastDetailsResult = repository.getPodcastDetails(podcast.id, forceRefresh = true).first()
                     podcastDetailsResult.onSuccess { podcastDetails ->
                         if (podcastDetails != null) {
                             val latestEpisode = podcastDetails.episodes.maxByOrNull { it.publishDate }

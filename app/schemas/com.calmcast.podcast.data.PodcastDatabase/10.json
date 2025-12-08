@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 8,
-    "identityHash": "6493607efe1f3d3bbc2e82b9a4c09e95",
+    "version": 10,
+    "identityHash": "df7c1da105a532a3c61ce05e3746fab4",
     "entities": [
       {
         "tableName": "podcasts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `description` TEXT NOT NULL, `imageUrl` TEXT, `episodeCount` INTEGER NOT NULL, `feedUrl` TEXT, `newEpisodeCount` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `description` TEXT NOT NULL, `imageUrl` TEXT, `episodeCount` INTEGER NOT NULL, `feedUrl` TEXT, `newEpisodeCount` INTEGER NOT NULL, `lastViewedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -53,6 +53,12 @@
           {
             "fieldPath": "newEpisodeCount",
             "columnName": "newEpisodeCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastViewedAt",
+            "columnName": "lastViewedAt",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -286,7 +292,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6493607efe1f3d3bbc2e82b9a4c09e95')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'df7c1da105a532a3c61ce05e3746fab4')"
     ]
   }
 }

@@ -4,13 +4,12 @@ import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.calmcast.podcast.api.ItunesApiService
-import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PodcastDao
 import com.calmcast.podcast.data.PodcastRepository
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
 import com.calmcast.podcast.data.download.AndroidDownloadManager
+import com.calmcast.podcast.api.ItunesApiService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -21,36 +20,50 @@ object AppLifecycleTracker {
     private var settingsManager: SettingsManager? = null
     private var podcastDao: PodcastDao? = null
     private var subscriptionManager: SubscriptionManager? = null
+    private var onRefreshCallback: (() -> Unit)? = null
+
+    fun setRefreshCallback(callback: (() -> Unit)?) {
+        onRefreshCallback = callback
+    }
 
     fun initialize(
         subscriptionMgr: SubscriptionManager,
         downloadManager: AndroidDownloadManager,
         settings: SettingsManager,
-        dao: PodcastDao
+        dao: PodcastDao,
+        refreshCallback: (() -> Unit)? = null
     ) {
         settingsManager = settings
         podcastDao = dao
         subscriptionManager = subscriptionMgr
+        onRefreshCallback = refreshCallback
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
                 when (event) {
                     Lifecycle.Event.ON_START -> {
-                        Log.d(TAG, "App entered foreground. Checking if daily episode refresh is needed.")
+                        Log.d(TAG, "App entered foreground. Triggering episode refresh for subscribed podcasts.")
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 val settings = settingsManager ?: return@launch
                                 val subMgr = subscriptionManager ?: return@launch
+                                val dao = podcastDao ?: return@launch
                                 
-                                // Check if a daily refresh is needed
-                                if (settings.isDailyRefreshNeeded()) {
-                                    Log.d(TAG, "Daily refresh needed. Triggering episode refresh for all subscribed podcasts.")
-                                    refreshAllPodcastEpisodes(subMgr, settings)
+                                // Try to use the callback first (from ViewModel)
+                                if (onRefreshCallback != null) {
+                                    Log.d(TAG, "Using ViewModel refresh callback")
+                                    onRefreshCallback?.invoke()
                                 } else {
-                                    Log.d(TAG, "Daily refresh not needed yet. Last refresh was less than 24 hours ago.")
+                                    // Fallback: refresh directly using repository if callback not set yet
+                                    Log.d(TAG, "Callback not set, using direct repository refresh")
+                                    refreshAllPodcastEpisodesDirectly(subMgr, dao)
                                 }
                                 
+                                // Record the refresh time
+                                settings.setLastEpisodeRefreshTime(System.currentTimeMillis())
+                                Log.d(TAG, "Episode refresh completed. Last refresh time recorded.")
+                                
                             } catch (e: Exception) {
-                                Log.e(TAG, "Error checking for new episodes to download", e)
+                                Log.e(TAG, "Error refreshing episodes", e)
                             }
                         }
                     }
@@ -60,50 +73,40 @@ object AppLifecycleTracker {
         )
     }
 
-    /**
-     * Refresh episodes for all subscribed podcasts by fetching from API and updating database.
-     * This ensures we always have the latest episode data.
-     */
-    private suspend fun refreshAllPodcastEpisodes(
+    private suspend fun refreshAllPodcastEpisodesDirectly(
         subscriptionManager: SubscriptionManager,
-        settingsManager: SettingsManager
+        podcastDao: PodcastDao
     ) {
         try {
-            val dao = podcastDao ?: return
             val repository = PodcastRepository(
                 ItunesApiService(),
                 subscriptionManager,
-                dao,
+                podcastDao,
                 null
             )
             val subscriptions = subscriptionManager.getSubscriptions()
             
-            Log.d(TAG, "Refreshing episodes for ${subscriptions.size} subscribed podcasts from API.")
+            Log.d(TAG, "Directly refreshing episodes for ${subscriptions.size} subscribed podcasts")
             
-            // Fetch fresh data from API for each subscribed podcast and update database
-            subscriptions.forEach { podcastWithEpisodes ->
+            for (podcastWithEpisodes in subscriptions) {
                 val podcast = podcastWithEpisodes.podcast
                 try {
                     Log.d(TAG, "Fetching episodes for: ${podcast.title}")
-                    val podcastDetailsResult = repository.getPodcastDetails(podcast.id).first()
-                    
-                    podcastDetailsResult.onSuccess { podcastDetails ->
-                        if (podcastDetails != null) {
-                            Log.d(TAG, "Updated ${podcastDetails.episodes.size} episodes for ${podcast.title}")
-                        }
-                    }.onFailure {
-                        Log.e(TAG, "Error fetching episodes for ${podcast.title}", it)
+                    try {
+                        repository.getPodcastDetails(podcast.id, forceRefresh = true).first()
+                        Log.d(TAG, "Episode fetch complete for ${podcast.title}")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error refreshing episodes for ${podcast.title}", e)
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                 }
             }
             
-            // Record the refresh time
-            settingsManager.setLastEpisodeRefreshTime(System.currentTimeMillis())
-            Log.d(TAG, "Daily refresh completed. Last refresh time recorded.")
+            Log.d(TAG, "Direct episode refresh completed")
         } catch (e: Exception) {
-            Log.e(TAG, "Error refreshing all podcast episodes", e)
+            Log.e(TAG, "Error in refreshAllPodcastEpisodesDirectly", e)
         }
     }
+
 }

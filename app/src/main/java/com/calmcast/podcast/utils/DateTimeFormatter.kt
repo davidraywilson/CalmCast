@@ -168,6 +168,16 @@ object DateTimeFormatter {
         return sdf.format(date)
     }
 
+    fun parseDateToMillis(dateStr: String?): Long? {
+        if (dateStr.isNullOrBlank()) return null
+        return try {
+            parseDate(dateStr).time
+        } catch (e: Exception) {
+            // Fallback: try to parse as unix seconds
+            dateStr.toLongOrNull()?.let { it * 1000 }
+        }
+    }
+
     /**
      * Formats a date to detailed format with time (e.g., "Jan 15, 2024 at 2:30 PM")
      * @param date Date to format

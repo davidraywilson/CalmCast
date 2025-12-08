@@ -14,7 +14,9 @@ data class Podcast(
     val description: String,
     val imageUrl: String?,
     val episodeCount: Int,
-    val feedUrl: String? = null
+    val feedUrl: String? = null,
+    val newEpisodeCount: Int = 0,
+    val lastViewedAt: Long = 0L
 )
 
 @Entity(tableName = "episodes", foreignKeys = [ForeignKey(entity = Podcast::class,
@@ -39,5 +41,5 @@ data class PodcastWithEpisodes(
         parentColumn = "id",
         entityColumn = "podcastId"
     )
-    val episodes: List<Episode>
+    val episodes: List<Episode> = emptyList()
 )

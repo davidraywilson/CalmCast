@@ -2,6 +2,7 @@ package com.calmcast.podcast.data
 
 import android.util.Log
 import com.calmcast.podcast.api.ItunesApiService
+import com.calmcast.podcast.utils.DateTimeFormatter
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
@@ -38,65 +39,9 @@ class PodcastRepository(
         }
     }.catch { e -> emit(Result.failure<List<Podcast>>(e)) }
 
-    fun getPodcastDetails(podcastId: String): Flow<Result<PodcastWithEpisodes?>> = flow {
-        Log.d("PodcastRepository", "getPodcastDetails called for $podcastId")
-        
-        // Check cache - but only return if it has episodes
-        val cachedPodcast = podcastDao.getPodcastWithEpisodes(podcastId)
-        if (cachedPodcast != null && cachedPodcast.episodes.isNotEmpty()) {
-            Log.d("PodcastRepository", "Found cached podcast with ${cachedPodcast.episodes.size} episodes")
-            emit(Result.success(cachedPodcast))
-            return@flow
-        }
-
-        // Try to fetch from database
-        val podcast = podcastDao.getPodcast(podcastId)
-        Log.d("PodcastRepository", "Podcast from DB: ${podcast?.title}, feedUrl: ${podcast?.feedUrl}")
-        
-        if (podcast != null && podcast.feedUrl != null) {
-            // We have the podcast with feedUrl, fetch episodes via RSS
-            Log.d("PodcastRepository", "Fetching episodes via RSS for ${podcast.title}")
-            val result = apiService.getPodcastDetails(podcastId = podcastId, feedUrl = podcast.feedUrl)
-            result.onSuccess { response ->
-                Log.d("PodcastRepository", "Got ${response.episodes.size} episodes from API")
-                // Update podcast with RSS description and episode count
-                val updatedPodcast = podcast.copy(
-                    description = if (response.description.isNotEmpty()) response.description else podcast.description,
-                    episodeCount = response.episodes.size
-                )
-                podcastDao.insertPodcast(updatedPodcast)
-                val episodes = response.episodes.map { episodeResult ->
-                    // Generate deterministic episode ID from podcast ID + title + audio URL
-                    // This ensures the ID remains stable across app restarts and minor URL changes
-                    val stableId = "${podcast.id}|${episodeResult.title}|${episodeResult.audioUrl}".hashCode().toString()
-                    Episode(
-                        id = stableId,
-                        podcastId = podcast.id,
-                        podcastTitle = podcast.title,
-                        title = episodeResult.title,
-                        description = episodeResult.description,
-                        publishDate = episodeResult.pubDate,
-                        duration = episodeResult.duration,
-                        audioUrl = episodeResult.audioUrl
-                    )
-                }
-                // Cache episodes
-                podcastDao.insertEpisodes(episodes)
-                emit(Result.success(podcastDao.getPodcastWithEpisodes(podcastId)))
-            }.onFailure { exception ->
-                Log.w("PodcastRepository", "Error fetching podcast details: ${exception.message}")
-                // Always propagate feed errors (404/410) so UI can show appropriate message
-                emit(Result.failure<PodcastWithEpisodes?>(exception))
-            }
-        } else {
-            // Podcast not in DB - this can happen if user clicked from search but didn't subscribe
-            Log.e("PodcastRepository", "Podcast not found in DB for id: $podcastId")
-            emit(Result.failure<PodcastWithEpisodes?>(Exception("Podcast not found in database")))
-        }
-    }.catch { e -> 
-        Log.e("PodcastRepository", "Exception in getPodcastDetails", e)
-        emit(Result.failure<PodcastWithEpisodes?>(e)) 
-    }
+    // Unified entrypoint retained for compatibility; delegates to fetchAndUpdateEpisodes
+    fun getPodcastDetails(podcastId: String, forceRefresh: Boolean = false): Flow<Result<PodcastWithEpisodes?>> =
+        fetchAndUpdateEpisodes(podcastId = podcastId, skipCache = forceRefresh)
 
     fun getSubscribedPodcasts(): Flow<Result<List<Podcast>>> = flow {
         val subscriptions = subscriptionManager.getSubscriptions()
@@ -106,8 +51,10 @@ class PodcastRepository(
 
     suspend fun subscribeToPodcast(podcast: Podcast): Result<Unit> {
         return try {
-            // Save podcast to database first
-            podcastDao.insertPodcast(podcast)
+            // Save podcast to database with current timestamp as lastViewedAt
+            // This ensures newly subscribed podcasts don't show a huge badge count
+            val now = System.currentTimeMillis()
+            podcastDao.insertPodcast(podcast.copy(lastViewedAt = now))
             // Then add to subscriptions
             val success = subscriptionManager.addSubscription(podcast)
             if (success) {
@@ -160,6 +107,8 @@ class PodcastRepository(
         return try {
             apiService.getPodcastFromRSSUrl(feedUrl).fold(
                 onSuccess = { customPodcast ->
+                    // Set lastViewedAt to current time so newly subscribed podcasts don't show a huge badge
+                    val now = System.currentTimeMillis()
                     val podcast = Podcast(
                         id = customPodcast.id,
                         title = customPodcast.title,
@@ -167,7 +116,8 @@ class PodcastRepository(
                         description = customPodcast.description,
                         imageUrl = customPodcast.imageUrl,
                         episodeCount = 0,
-                        feedUrl = customPodcast.feedUrl
+                        feedUrl = customPodcast.feedUrl,
+                        lastViewedAt = now
                     )
                     // Save podcast to database
                     podcastDao.insertPodcast(podcast)
@@ -181,5 +131,165 @@ class PodcastRepository(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun refreshPodcastEpisodesIncrementally(podcastId: String): Result<Int> {
+        return try {
+            val podcast = podcastDao.getPodcast(podcastId) ?: return Result.failure(Exception("Podcast not found"))
+            
+            if (podcast.feedUrl == null) {
+                return Result.failure(Exception("Podcast feed URL not available"))
+            }
+
+            val result = apiService.getPodcastDetails(podcastId = podcastId, feedUrl = podcast.feedUrl)
+            result.fold(
+                onSuccess = { response ->
+                    Log.d("PodcastRepository", "Fetched ${response.episodes.size} episodes for ${podcast.title}")
+                    
+                    // Get existing episode IDs to identify new ones
+                    val existingEpisodeIds = podcastDao.getEpisodeIdsByPodcast(podcast.id).toSet()
+                    
+                    // Create new episodes, filtering out existing ones
+                    val newEpisodes = response.episodes.mapNotNull { episodeResult ->
+                        val stableId = "${podcast.id}|${episodeResult.title}|${episodeResult.audioUrl}".hashCode().toString()
+                        if (!existingEpisodeIds.contains(stableId)) {
+                            Episode(
+                                id = stableId,
+                                podcastId = podcast.id,
+                                podcastTitle = podcast.title,
+                                title = episodeResult.title,
+                                description = episodeResult.description,
+                                publishDate = episodeResult.pubDate,
+                                duration = episodeResult.duration,
+                                audioUrl = episodeResult.audioUrl
+                            )
+                        } else {
+                            null
+                        }
+                    }
+                    
+                    Log.d("PodcastRepository", "Found ${newEpisodes.size} new episodes for ${podcast.title}")
+                    
+                    // Insert only new episodes
+                    if (newEpisodes.isNotEmpty()) {
+                        podcastDao.insertEpisodes(newEpisodes)
+                    }
+                    
+                    // Update podcast with latest episode count and increment newEpisodeCount
+                    val updatedPodcast = podcast.copy(
+                        episodeCount = response.episodes.size,
+                        description = if (response.description.isNotEmpty()) response.description else podcast.description,
+                        newEpisodeCount = podcast.newEpisodeCount + newEpisodes.size
+                    )
+                    podcastDao.insertPodcast(updatedPodcast)
+                    
+                    Result.success(newEpisodes.size)
+                },
+                onFailure = { e -> 
+                    Log.e("PodcastRepository", "Error refreshing episodes for ${podcast.title}", e)
+                    Result.failure(e) 
+                }
+            )
+        } catch (e: Exception) {
+            Log.e("PodcastRepository", "Exception in refreshPodcastEpisodesIncrementally", e)
+            Result.failure(e)
+        }
+    }
+
+    fun fetchAndUpdateEpisodes(podcastId: String, skipCache: Boolean = false): Flow<Result<PodcastWithEpisodes?>> = flow<Result<PodcastWithEpisodes?>> {
+        Log.d("PodcastRepository", "fetchAndUpdateEpisodes called for $podcastId (skipCache=$skipCache)")
+        
+        // Get podcast from database
+        val podcast = podcastDao.getPodcast(podcastId)
+        Log.d("PodcastRepository", "Query param podcastId=$podcastId, podcast from DB: id=${podcast?.id}, title=${podcast?.title}")
+        if (podcast == null || podcast.feedUrl == null) {
+            emit(Result.failure(Exception("Podcast not found or no feed URL available")))
+            return@flow
+        }
+        
+        // If not skipping cache, check if we have episodes in the database
+        if (!skipCache) {
+            val cachedEpisodes = podcastDao.getEpisodesForPodcast(podcast.id)
+            if (cachedEpisodes.isNotEmpty()) {
+                Log.d("PodcastRepository", "Returning ${cachedEpisodes.size} cached episodes from DB for ${podcast.title}")
+                emit(Result.success(PodcastWithEpisodes(podcast, cachedEpisodes)))
+                return@flow
+            }
+        }
+
+        // Fetch from API
+        
+        val result = apiService.getPodcastDetails(podcastId = podcastId, feedUrl = podcast.feedUrl)
+        result.fold(
+            onSuccess = { response ->
+                // Get existing episode IDs to identify new ones
+                val existingEpisodeIds = podcastDao.getEpisodeIdsByPodcast(podcast.id).toSet()
+                
+                // Create episodes from API response
+                Log.d("PodcastRepository", "Creating episodes with podcast.id=${podcast.id}")
+                val episodes = response.episodes.map { episodeResult ->
+                    val stableId = "${podcast.id}|${episodeResult.title}|${episodeResult.audioUrl}".hashCode().toString()
+                    Episode(
+                        id = stableId,
+                        podcastId = podcast.id,
+                        podcastTitle = podcast.title,
+                        title = episodeResult.title,
+                        description = episodeResult.description,
+                        publishDate = episodeResult.pubDate,
+                        duration = episodeResult.duration,
+                        audioUrl = episodeResult.audioUrl
+                    )
+                }
+                
+                // Filter out episodes that already exist in the database
+                val newEpisodes = episodes.filterNot { existingEpisodeIds.contains(it.id) }
+                Log.d("PodcastRepository", "Total episodes from API: ${episodes.size}, new: ${newEpisodes.size}")
+                
+                // Insert new episodes
+                if (newEpisodes.isNotEmpty()) {
+                    Log.d("PodcastRepository", "Inserting ${newEpisodes.size} episodes")
+                    podcastDao.insertEpisodes(newEpisodes)
+                    Log.d("PodcastRepository", "Episodes inserted successfully")
+                } else {
+                    Log.d("PodcastRepository", "No new episodes to insert")
+                }
+                
+                // Compute unseenCount as episodes published after lastViewedAt
+                // Only count episodes as unseen if lastViewedAt > 0 (podcast was actually viewed before)
+                // This prevents showing 2000+ badge count for newly subscribed podcasts
+                val viewedCutoff = podcast.lastViewedAt
+                val unseenCount = if (skipCache && viewedCutoff > 0) {
+                    newEpisodes.count { ep ->
+                        val millis = DateTimeFormatter.parseDateToMillis(ep.publishDate)
+                        millis?.let { it > viewedCutoff } ?: true
+                    }
+                } else 0
+
+                // Update podcast metadata
+                val updatedPodcast = podcast.copy(
+                    episodeCount = response.episodes.size,
+                    description = if (response.description.isNotEmpty()) response.description else podcast.description,
+                    newEpisodeCount = if (skipCache) podcast.newEpisodeCount + unseenCount else podcast.newEpisodeCount
+                )
+                podcastDao.insertPodcast(updatedPodcast)
+                
+                // Combine newly inserted episodes with any existing ones from before
+                val existingEpisodes = podcastDao.getEpisodesForPodcast(podcast.id).filterNot { ep ->
+                    newEpisodes.any { it.id == ep.id }
+                }
+                val allEpisodes = (newEpisodes + existingEpisodes).sortedByDescending { it.publishDate }
+                Log.d("PodcastRepository", "Total episodes to return: ${allEpisodes.size} (${newEpisodes.size} new + ${existingEpisodes.size} existing)")
+                val podcastWithEpisodes = PodcastWithEpisodes(updatedPodcast, allEpisodes)
+                Log.d("PodcastRepository", "Emitting PodcastWithEpisodes: podcast=${podcastWithEpisodes.podcast.title}, episodes=${podcastWithEpisodes.episodes.size}")
+                emit(Result.success(podcastWithEpisodes))
+            },
+            onFailure = { exception ->
+                Log.e("PodcastRepository", "Error fetching podcast episodes", exception)
+                emit(Result.failure(exception))
+            }
+        )
+    }.catch { e -> 
+        Log.e("PodcastRepository", "Exception in fetchAndUpdateEpisodes", e)
+        emit(Result.failure<PodcastWithEpisodes?>(e)) 
     }
 }

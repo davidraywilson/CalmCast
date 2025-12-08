@@ -73,6 +73,9 @@ class PodcastViewModel(
     private val _subscriptions = mutableStateOf<List<Podcast>>(emptyList())
     val subscriptions: State<List<Podcast>> = _subscriptions
 
+    private val _newEpisodeCounts = mutableStateOf<Map<String, Int>>(emptyMap())
+    val newEpisodeCounts: State<Map<String, Int>> = _newEpisodeCounts
+
     private val _searchResults = mutableStateOf<List<Podcast>>(emptyList())
     val searchResults: State<List<Podcast>> = _searchResults
 
@@ -354,21 +357,22 @@ class PodcastViewModel(
     private fun loadInitialData() {
         _isLoading.value = true
         viewModelScope.launch {
-            repository.getSubscribedPodcasts().collect { result ->
-                result.onSuccess { podcasts ->
-                    val sortedPodcasts = podcasts.map { podcast ->
-                        async {
-                            val latestEpisode = podcastDao.getLatestEpisodeForPodcast(podcast.id)
-                            podcast to latestEpisode?.publishDate
-                        }
-                    }.awaitAll().sortedByDescending { it.second }.map { it.first }
-                    _subscriptions.value = sortedPodcasts
-                    _isLoading.value = false
-                    checkForNewEpisodes()
-                }.onFailure { exception ->
-                    _errorMessage.value = exception.message
-                    _isLoading.value = false
-                }
+            try {
+                // Get subscription IDs from SharedPreferences
+                val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
+                Log.d(TAG, "loadInitialData: found ${subscriptionIds.size} subscriptions")
+                
+                // Load podcasts from DB that are in the subscription list, sorted by latest episode
+                val allPodcasts = podcastDao.getSubscribedPodcastsSortedByLatestEpisode()
+                val podcasts = allPodcasts.filter { subscriptionIds.contains(it.id) }
+                
+                _subscriptions.value = podcasts
+                _isLoading.value = false
+                checkForNewEpisodes()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading initial data", e)
+                _errorMessage.value = e.message
+                _isLoading.value = false
             }
         }
     }
@@ -378,7 +382,7 @@ class PodcastViewModel(
             if (settingsManager.isAutoDownloadEnabled()) {
                 val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
                 for (podcast in subscribedPodcasts) {
-                    val podcastDetails = repository.getPodcastDetails(podcast.id).first().getOrNull()
+                    val podcastDetails = repository.getPodcastDetails(podcast.id, forceRefresh = true).first().getOrNull()
                     val latestEpisode = podcastDetails?.episodes?.firstOrNull()
                     if (latestEpisode != null) {
                         val existingDownload = _downloads.value.find { it.episode.id == latestEpisode.id }
@@ -443,9 +447,15 @@ class PodcastViewModel(
 
     fun unsubscribeFromPodcast(podcastId: String) {
         viewModelScope.launch {
+            Log.d(TAG, "unsubscribeFromPodcast called for $podcastId")
             repository.unsubscribeFromPodcast(podcastId).onSuccess {
+                Log.d(TAG, "unsubscribeFromPodcast succeeded for $podcastId")
                 _subscriptions.value = _subscriptions.value.filter { it.id != podcastId }
-            }.onFailure { _errorMessage.value = it.message }
+                Log.d(TAG, "subscriptions updated, new count: ${_subscriptions.value.size}")
+            }.onFailure { error ->
+                Log.e(TAG, "unsubscribeFromPodcast failed for $podcastId", error)
+                _errorMessage.value = error.message
+            }
         }
     }
 
@@ -483,6 +493,13 @@ class PodcastViewModel(
         _detailError.value = null
         viewModelScope.launch {
             Log.d(TAG, "fetchPodcastDetails called for $podcastId")
+            // Clear new episode count and stamp last viewed time since user is viewing it
+            val now = System.currentTimeMillis()
+            podcastDao.resetNewCountAndStampViewed(podcastId, now)
+            _subscriptions.value = _subscriptions.value.map { podcast ->
+                if (podcast.id == podcastId) podcast.copy(newEpisodeCount = 0, lastViewedAt = now) else podcast
+            }
+            
             // First, check if podcast exists in DB. If not, try to find it from search results
             val podcast = podcastDao.getPodcast(podcastId)
             Log.d(TAG, "Podcast from DB: ${podcast?.title}")
@@ -534,19 +551,20 @@ class PodcastViewModel(
         _episodesLoading.value = true
         viewModelScope.launch {
             try {
-                // Delete old episodes from database
-                podcastDao.deleteEpisodesForPodcast(podcastId)
-                
-                // Fetch fresh episodes from repository
-                repository.getPodcastDetails(podcastId).collect { result ->
+                // Force refresh using unified method (no deletion; only new episodes added)
+                repository.getPodcastDetails(podcastId, forceRefresh = true).collect { result ->
                     result.onSuccess { podcastWithEpisodes ->
                         if (podcastWithEpisodes != null) {
-                            fetchPodcastDetails(podcastId)
-                            
+                            _currentPodcastDetails.value = podcastWithEpisodes
+                            // Load playback positions for the refreshed episodes
+                            val episodeIds = podcastWithEpisodes.episodes.map { it.id }
+                            val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
+                            _playbackPositions.value = _playbackPositions.value + positions.associateBy { it.episodeId }
                             if (settingsManager.isAutoDownloadEnabled()) {
                                 checkForNewEpisodes()
                             }
                         }
+                        _episodesLoading.value = false
                     }.onFailure { exception ->
                         _errorMessage.value = "Failed to refresh episodes: ${exception.message}"
                         _episodesLoading.value = false
@@ -555,6 +573,45 @@ class PodcastViewModel(
             } catch (e: Exception) {
                 _errorMessage.value = "Error refreshing episodes: ${e.message}"
                 _episodesLoading.value = false
+            }
+        }
+    }
+
+    fun refreshSubscribedPodcastEpisodes() {
+        viewModelScope.launch {
+            try {
+                val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
+                val newCounts = mutableMapOf<String, Int>()
+                
+                Log.d(TAG, "Refreshing episodes for ${subscribedPodcasts.size} subscribed podcasts")
+                
+                for (podcast in subscribedPodcasts) {
+                    try {
+                        val beforeCount = podcast.newEpisodeCount
+                        // Force refresh using unified method
+                        repository.getPodcastDetails(podcast.id, forceRefresh = true).first()
+                        // Compute delta from DB after refresh
+                        val afterPodcast = podcastDao.getPodcast(podcast.id)
+                        val delta = (afterPodcast?.newEpisodeCount ?: 0) - beforeCount
+                        if (delta > 0) {
+                            Log.d(TAG, "Found $delta new episodes for ${podcast.title}")
+                            newCounts[podcast.id] = delta
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
+                    }
+                }
+                
+                // Reload subscriptions from DB to get persisted newEpisodeCount values
+                val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
+                val allPodcasts = podcastDao.getSubscribedPodcastsSortedByLatestEpisode()
+                val updatedSubscriptions = allPodcasts.filter { subscriptionIds.contains(it.id) }
+                _subscriptions.value = updatedSubscriptions
+                
+                _newEpisodeCounts.value = newCounts
+                Log.d(TAG, "Episode refresh completed. New episodes found in ${newCounts.size} podcasts")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error refreshing all podcast episodes", e)
             }
         }
     }

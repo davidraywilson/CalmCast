@@ -78,13 +78,17 @@ class SubscriptionManager(private val context: Context, private val podcastDao: 
 
     suspend fun removeSubscription(podcastId: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            Log.d(TAG, "removeSubscription called for $podcastId")
             val subscriptionIds = getSubscriptionIds().toMutableList()
+            Log.d(TAG, "Current subscriptions before removal: ${subscriptionIds.size} - $subscriptionIds")
             val initialSize = subscriptionIds.size
             subscriptionIds.remove(podcastId)
             val removed = subscriptionIds.size < initialSize
+            Log.d(TAG, "Remove result for $podcastId: $removed, subscriptions after removal: ${subscriptionIds.size} - $subscriptionIds")
 
             if (removed) {
                 saveSubscriptionIds(subscriptionIds)
+                Log.d(TAG, "Saved updated subscriptions")
             }
             removed
         } catch (e: Exception) {
@@ -136,6 +140,15 @@ class SubscriptionManager(private val context: Context, private val podcastDao: 
         } catch (e: Exception) {
             Log.e(TAG, "Error checking subscription status", e)
             false
+        }
+    }
+    
+    suspend fun getSubscribedPodcastIds(): List<String> = withContext(Dispatchers.IO) {
+        try {
+            getSubscriptionIds()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting subscription IDs", e)
+            emptyList()
         }
     }
 

@@ -9,7 +9,7 @@ import androidx.room.TypeConverters
 import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.data.download.DownloadDao
 
-@Database(entities = [com.calmcast.podcast.data.Podcast::class, com.calmcast.podcast.data.Episode::class, com.calmcast.podcast.data.PlaybackPosition::class, Download::class], version = 8)
+@Database(entities = [com.calmcast.podcast.data.Podcast::class, com.calmcast.podcast.data.Episode::class, com.calmcast.podcast.data.PlaybackPosition::class, Download::class], version = 10)
 @TypeConverters(com.calmcast.podcast.data.DateConverter::class)
 abstract class PodcastDatabase : RoomDatabase() {
 
@@ -29,7 +29,7 @@ abstract class PodcastDatabase : RoomDatabase() {
                         PodcastDatabase::class.java,
                         "podcast_database"
                     )
-                        .addMigrations(Migrations.MIGRATION_6_7, Migrations.MIGRATION_7_8)
+.addMigrations(Migrations.MIGRATION_6_7, Migrations.MIGRATION_7_8, Migrations.MIGRATION_8_9, Migrations.MIGRATION_9_10)
                         .fallbackToDestructiveMigration()
                         .build()
                     INSTANCE = instance
@@ -50,7 +50,7 @@ abstract class PodcastDatabase : RoomDatabase() {
                         PodcastDatabase::class.java,
                         "podcast_database"
                     )
-                        .addMigrations(Migrations.MIGRATION_6_7, Migrations.MIGRATION_7_8)
+.addMigrations(Migrations.MIGRATION_6_7, Migrations.MIGRATION_7_8, Migrations.MIGRATION_8_9, Migrations.MIGRATION_9_10)
                         .fallbackToDestructiveMigration()
                         .build()
                     INSTANCE = retryInstance
