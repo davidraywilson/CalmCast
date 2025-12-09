@@ -335,11 +335,9 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                             contentDescription = "Search"
                                         )
                                     }
-                                }
-                                if (currentDestination?.route == "search") {
+
                                     ButtonMMD(
-                                        modifier = Modifier.padding(end = 8.dp),
-                                        contentPadding = PaddingValues(vertical = 2.dp, horizontal = 2.dp),
+                                        contentPadding = PaddingValues(0.dp),
                                         onClick = { showAddRSSModal.value = true }
                                     ) {
                                         Icon(
@@ -441,7 +439,24 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 navController.navigate("detail/${podcast.id}")
                             },
                             removeDividers = viewModel.removeHorizontalDividers.value,
-                            newEpisodeCounts = viewModel.newEpisodeCounts.value
+                            newEpisodeCounts = viewModel.newEpisodeCounts.value,
+                            showAddRSSModal = showAddRSSModal.value,
+                            onShowAddRSSModal = { show -> showAddRSSModal.value = show },
+                            onAddRSSFeed = { url ->
+                                viewModel.subscribeToRSSUrl(url) { result ->
+                                    scope.launch {
+                                        if (result.isSuccess) {
+                                            val p = result.getOrNull()
+                                            snackbarHostState.showSnackbar("Now following ${p?.title ?: "podcast"}")
+                                            showAddRSSModal.value = false
+                                        } else {
+                                            val message = result.exceptionOrNull()?.message ?: "Failed to add RSS feed"
+                                            snackbarHostState.showSnackbar(message)
+                                        }
+                                    }
+                                }
+                            },
+                            isAddingRSSFeed = viewModel.isAddingRSSFeed.value
                         )
                     }
                     composable(
@@ -472,24 +487,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                     }
                                 }
                             },
-                            removeDividers = viewModel.removeHorizontalDividers.value,
-                            showAddRSSModal = showAddRSSModal.value,
-                            onShowAddRSSModal = { show -> showAddRSSModal.value = show },
-                            onAddRSSFeed = { url ->
-                                viewModel.subscribeToRSSUrl(url) { result ->
-                                    scope.launch {
-                                        if (result.isSuccess) {
-                                            val p = result.getOrNull()
-                                            snackbarHostState.showSnackbar("Now following ${p?.title ?: "podcast"}")
-                                            showAddRSSModal.value = false
-                                        } else {
-                                            val message = result.exceptionOrNull()?.message ?: "Failed to add RSS feed"
-                                            snackbarHostState.showSnackbar(message)
-                                        }
-                                    }
-                                }
-                            },
-                            isAddingRSSFeed = viewModel.isAddingRSSFeed.value
+                            removeDividers = viewModel.removeHorizontalDividers.value
                         )
                     }
                     composable(

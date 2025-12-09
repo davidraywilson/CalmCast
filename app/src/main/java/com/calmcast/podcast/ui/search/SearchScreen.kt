@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import com.calmapps.calmcast.R
 import com.calmcast.podcast.data.Podcast
 import com.calmcast.podcast.ui.common.DashedDivider
-import com.calmcast.podcast.ui.subscriptions.AddRSSFeedModal
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 
 @Composable
@@ -40,21 +39,8 @@ fun SearchScreen(
     onPodcastClick: (Podcast) -> Unit,
     isFollowed: (String) -> Boolean,
     onFollowClick: (Podcast) -> Unit,
-    removeDividers: Boolean = false,
-    showAddRSSModal: Boolean = false,
-    onShowAddRSSModal: (Boolean) -> Unit = {},
-    onAddRSSFeed: (String) -> Unit = {},
-    isAddingRSSFeed: Boolean = false
+    removeDividers: Boolean = false
 ) {
-    if (showAddRSSModal) {
-        AddRSSFeedModal(
-            isVisible = true,
-            onDismiss = { onShowAddRSSModal(false) },
-            onSave = onAddRSSFeed,
-            isLoading = isAddingRSSFeed
-        )
-    }
-    
     Column(
         modifier = Modifier
             .fillMaxSize()

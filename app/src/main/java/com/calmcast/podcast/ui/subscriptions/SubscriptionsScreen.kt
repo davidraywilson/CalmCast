@@ -38,8 +38,20 @@ fun SubscriptionsScreen(
     podcasts: List<Podcast>,
     onPodcastClick: (Podcast) -> Unit,
     removeDividers: Boolean = false,
-    newEpisodeCounts: Map<String, Int> = emptyMap()
+    newEpisodeCounts: Map<String, Int> = emptyMap(),
+    showAddRSSModal: Boolean = false,
+    onShowAddRSSModal: (Boolean) -> Unit = {},
+    onAddRSSFeed: (String) -> Unit = {},
+    isAddingRSSFeed: Boolean = false
 ) {
+    if (showAddRSSModal) {
+        AddRSSFeedModal(
+            isVisible = true,
+            onDismiss = { onShowAddRSSModal(false) },
+            onSave = onAddRSSFeed,
+            isLoading = isAddingRSSFeed
+        )
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         if (podcasts.isEmpty()) {
             Box(

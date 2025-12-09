@@ -1,6 +1,7 @@
 package com.calmcast.podcast.ui.subscriptions
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -75,7 +76,7 @@ fun AddRSSFeedModal(
                         .padding(bottom = 16.dp)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedButtonMMD(
                     onClick = {
@@ -86,11 +87,12 @@ fun AddRSSFeedModal(
                     },
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
                     Text("Cancel")
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 ButtonMMD(
                     onClick = {
@@ -100,7 +102,8 @@ fun AddRSSFeedModal(
                         }
                     },
                     enabled = !isLoading && feedUrl.value.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -111,7 +114,7 @@ fun AddRSSFeedModal(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Text("Save")
+                        Text("Follow")
                     }
                 }
             }
