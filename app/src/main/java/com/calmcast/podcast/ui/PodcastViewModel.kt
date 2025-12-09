@@ -352,7 +352,7 @@ class PodcastViewModel(
                 val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
                 
                 val allPodcasts = podcastDao.getAllPodcasts()
-                val podcasts = allPodcasts.filter { subscriptionIds.contains(it.id) }
+                val podcasts = allPodcasts.filter { subscriptionIds.contains(it.id) }.sortedBy { it.title }
                 
                 _subscriptions.value = podcasts
                 _isLoading.value = false
@@ -418,7 +418,7 @@ class PodcastViewModel(
         viewModelScope.launch {
             repository.subscribeToPodcast(podcast).onSuccess {
                 if (!_subscriptions.value.any { it.id == podcast.id }) {
-                    val updatedList = _subscriptions.value + podcast
+                    val updatedList = (_subscriptions.value + podcast).sortedBy { it.title }
                     _subscriptions.value = updatedList
                 }
                 // Fetch full metadata from API after successful subscription
@@ -429,7 +429,7 @@ class PodcastViewModel(
                             val updatedPodcast = podcastDetails.podcast
                             _subscriptions.value = _subscriptions.value.map { p ->
                                 if (p.id == podcast.id) updatedPodcast else p
-                            }
+                            }.sortedBy { it.title }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error fetching metadata for new subscription", e)
@@ -458,7 +458,7 @@ class PodcastViewModel(
                 val result = repository.subscribeToRSSUrl(feedUrl)
                 result.onSuccess { podcast ->
                     if (!_subscriptions.value.any { it.id == podcast.id }) {
-                        val updatedList = _subscriptions.value + podcast
+                        val updatedList = (_subscriptions.value + podcast).sortedBy { it.title }
                         _subscriptions.value = updatedList
                     }
                     // Fetch full metadata from API after successful subscription
@@ -468,7 +468,7 @@ class PodcastViewModel(
                             val updatedPodcast = podcastDetails.podcast
                             _subscriptions.value = _subscriptions.value.map { p ->
                                 if (p.id == podcast.id) updatedPodcast else p
-                            }
+                            }.sortedBy { it.title }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error fetching metadata for RSS subscription", e)

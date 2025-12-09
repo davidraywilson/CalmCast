@@ -5,8 +5,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +31,7 @@ import com.mudita.mmd.components.text_field.TextFieldMMD
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddRSSFeedModal(
-    isVisible: Boolean,
+    showModal: Boolean,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
     isLoading: Boolean = false
@@ -35,8 +39,8 @@ fun AddRSSFeedModal(
     val feedUrl = remember { mutableStateOf("") }
     val hasCalledOnSave = remember { mutableStateOf(false) }
 
-    androidx.compose.runtime.LaunchedEffect(isVisible) {
-        if (!isVisible) {
+    LaunchedEffect(showModal) {
+        if (!showModal) {
             feedUrl.value = ""
             hasCalledOnSave.value = false
         }
@@ -49,14 +53,16 @@ fun AddRSSFeedModal(
         }
     }
 
-    if (isVisible) {
+    if (showModal) {
         ModalBottomSheetMMD(
             onDismissRequest = onDismiss
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp)
             ) {
                 Text(
                     text = "Add Custom Podcast",
@@ -117,6 +123,8 @@ fun AddRSSFeedModal(
                         Text("Follow")
                     }
                 }
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }

@@ -38,20 +38,8 @@ fun SubscriptionsScreen(
     podcasts: List<Podcast>,
     onPodcastClick: (Podcast) -> Unit,
     removeDividers: Boolean = false,
-    newEpisodeCounts: Map<String, Int> = emptyMap(),
-    showAddRSSModal: Boolean = false,
-    onShowAddRSSModal: (Boolean) -> Unit = {},
-    onAddRSSFeed: (String) -> Unit = {},
-    isAddingRSSFeed: Boolean = false
+    newEpisodeCounts: Map<String, Int> = emptyMap()
 ) {
-    if (showAddRSSModal) {
-        AddRSSFeedModal(
-            isVisible = true,
-            onDismiss = { onShowAddRSSModal(false) },
-            onSave = onAddRSSFeed,
-            isLoading = isAddingRSSFeed
-        )
-    }
     Box(modifier = Modifier.fillMaxSize()) {
         if (podcasts.isEmpty()) {
             Box(
@@ -64,7 +52,9 @@ fun SubscriptionsScreen(
             }
         } else {
             LazyColumnMMD(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 16.dp),
             ) {
                 itemsIndexed(podcasts) { index, podcast ->
                     PodcastCard(podcast = podcast, newEpisodeCount = newEpisodeCounts[podcast.id] ?: 0, onClick = { onPodcastClick(podcast) })

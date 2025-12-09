@@ -73,6 +73,7 @@ import com.calmcast.podcast.ui.podcastdetail.FeedNotFoundScreen
 import com.calmcast.podcast.ui.podcastdetail.PodcastDetailScreen
 import com.calmcast.podcast.ui.search.SearchScreen
 import com.calmcast.podcast.ui.subscriptions.SubscriptionsScreen
+import com.calmcast.podcast.ui.subscriptions.AddRSSFeedModal
 import com.mudita.mmd.ThemeMMD
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
@@ -225,6 +226,26 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
             artworkUri = viewModel.currentArtworkUri.value
         )
     } else {
+        AddRSSFeedModal(
+            showModal = showAddRSSModal.value,
+            onDismiss = { showAddRSSModal.value = false },
+            onSave = { url ->
+                viewModel.subscribeToRSSUrl(url) { result ->
+                    scope.launch {
+                        if (result.isSuccess) {
+                            val p = result.getOrNull()
+                            snackbarHostState.showSnackbar("Now following ${p?.title ?: "podcast"}")
+                            showAddRSSModal.value = false
+                        } else {
+                            val message = result.exceptionOrNull()?.message ?: "Failed to add RSS feed"
+                            snackbarHostState.showSnackbar(message)
+                        }
+                    }
+                }
+            },
+            isLoading = viewModel.isAddingRSSFeed.value
+        )
+
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 snackbarHost = { SnackbarHostMMD(hostState = snackbarHostState) },
@@ -338,6 +359,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
 
                                     ButtonMMD(
                                         contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.padding(end = 8.dp),
                                         onClick = { showAddRSSModal.value = true }
                                     ) {
                                         Icon(
@@ -439,24 +461,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 navController.navigate("detail/${podcast.id}")
                             },
                             removeDividers = viewModel.removeHorizontalDividers.value,
-                            newEpisodeCounts = viewModel.newEpisodeCounts.value,
-                            showAddRSSModal = showAddRSSModal.value,
-                            onShowAddRSSModal = { show -> showAddRSSModal.value = show },
-                            onAddRSSFeed = { url ->
-                                viewModel.subscribeToRSSUrl(url) { result ->
-                                    scope.launch {
-                                        if (result.isSuccess) {
-                                            val p = result.getOrNull()
-                                            snackbarHostState.showSnackbar("Now following ${p?.title ?: "podcast"}")
-                                            showAddRSSModal.value = false
-                                        } else {
-                                            val message = result.exceptionOrNull()?.message ?: "Failed to add RSS feed"
-                                            snackbarHostState.showSnackbar(message)
-                                        }
-                                    }
-                                }
-                            },
-                            isAddingRSSFeed = viewModel.isAddingRSSFeed.value
+                            newEpisodeCounts = viewModel.newEpisodeCounts.value
                         )
                     }
                     composable(
