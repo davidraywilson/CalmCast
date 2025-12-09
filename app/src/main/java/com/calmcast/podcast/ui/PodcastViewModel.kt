@@ -22,13 +22,13 @@ import com.calmcast.podcast.PlaybackService
 import com.calmcast.podcast.PlaybackError
 import com.calmcast.podcast.api.FeedGoneException
 import com.calmcast.podcast.api.FeedNotFoundException
-import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PlaybackPosition
 import com.calmcast.podcast.data.PlaybackPositionDao
 import com.calmcast.podcast.data.Podcast
 import com.calmcast.podcast.data.PodcastDao
 import com.calmcast.podcast.data.PodcastRepository
-import com.calmcast.podcast.data.PodcastWithEpisodes
+import com.calmcast.podcast.data.PodcastRepository.Episode
+import com.calmcast.podcast.data.PodcastRepository.PodcastWithEpisodes
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
 import com.calmcast.podcast.data.DownloadLocation
@@ -88,6 +88,8 @@ class PodcastViewModel(
 
     private val _currentPodcastDetails = mutableStateOf<PodcastWithEpisodes?>(null)
     val currentPodcastDetails: State<PodcastWithEpisodes?> = _currentPodcastDetails
+
+    private val _metadataLoading = mutableStateOf(false)
 
     private val _episodesLoading = mutableStateOf(false)
     val episodesLoading: State<Boolean> = _episodesLoading
@@ -285,10 +287,7 @@ class PodcastViewModel(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (mediaItem != null) {
-                viewModelScope.launch {
-                    val episode = podcastDao.getEpisodeById(mediaItem.mediaId)
-                    _currentEpisode.value = episode
-                }
+                _currentEpisode.value = _downloads.value.find { it.episode.id == mediaItem.mediaId }?.episode
             }
         }
     }
@@ -300,7 +299,6 @@ class PodcastViewModel(
         controllerFuture?.addListener({
             mediaController = controllerFuture?.get()
             mediaController?.addListener(playerListener)
-            // Initial state sync
             _currentPosition.longValue = mediaController?.currentPosition ?: 0L
             _duration.longValue = mediaController?.duration ?: 0L
         }, MoreExecutors.directExecutor())
@@ -312,10 +310,6 @@ class PodcastViewModel(
         }.launchIn(viewModelScope)
     }
 
-    private fun setupPlaybackStateObserver() {
-        // No-op: position updates are now tied to playback via start/stopPositionUpdates()
-    }
-
     private fun startPositionUpdates() {
         positionUpdateJob?.cancel()
         positionUpdateJob = viewModelScope.launch {
@@ -323,19 +317,16 @@ class PodcastViewModel(
                 _currentPosition.longValue = mediaController?.currentPosition ?: 0L
                 _duration.longValue = mediaController?.duration ?: 0L
 
-                // Save playback position to database every 10 seconds using wall-clock time
                 if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastSaveTime >= SAVE_INTERVAL_MS) {
                         lastSaveTime = currentTime
                         val episodeId = _currentEpisode.value!!.id
                         val position = _currentPosition.longValue
-                        // Save to database
                         repository.savePlaybackPosition(
                             episodeId = episodeId,
                             position = position
                         )
-                        // Update UI state only when database is saved
                         val updatedPosition = PlaybackPosition(
                             episodeId = episodeId,
                             position = position,
@@ -358,16 +349,15 @@ class PodcastViewModel(
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                // Get subscription IDs from SharedPreferences
                 val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
                 
-                // Load podcasts from DB that are in the subscription list, sorted by latest episode
-                val allPodcasts = podcastDao.getSubscribedPodcastsSortedByLatestEpisode()
+                val allPodcasts = podcastDao.getAllPodcasts()
                 val podcasts = allPodcasts.filter { subscriptionIds.contains(it.id) }
                 
                 _subscriptions.value = podcasts
                 _isLoading.value = false
                 checkForNewEpisodes()
+                refreshSubscribedPodcastEpisodes()
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading initial data", e)
                 _errorMessage.value = e.message
@@ -402,14 +392,12 @@ class PodcastViewModel(
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
         
-        // Cancel previous search job
         searchJob?.cancel()
         
         if (query.isBlank()) {
             _searchResults.value = emptyList()
             _isLoading.value = false
         } else {
-            // Create a new debounced search job
             searchJob = viewModelScope.launch {
                 delay(SEARCH_DEBOUNCE_MS)
                 _isLoading.value = true
@@ -430,15 +418,22 @@ class PodcastViewModel(
         viewModelScope.launch {
             repository.subscribeToPodcast(podcast).onSuccess {
                 if (!_subscriptions.value.any { it.id == podcast.id }) {
-                    // Add new podcast and re-sort by latest episode date
                     val updatedList = _subscriptions.value + podcast
-                    val sortedPodcasts = updatedList.map { p ->
-                        async {
-                            val latestEpisode = podcastDao.getLatestEpisodeForPodcast(p.id)
-                            p to latestEpisode?.publishDate
+                    _subscriptions.value = updatedList
+                }
+                // Fetch full metadata from API after successful subscription
+                if (podcast.feedUrl != null) {
+                    try {
+                        repository.getPodcastDetails(podcast.id).first().getOrNull()?.let { podcastDetails ->
+                            // Update the podcast in subscriptions with fetched metadata
+                            val updatedPodcast = podcastDetails.podcast
+                            _subscriptions.value = _subscriptions.value.map { p ->
+                                if (p.id == podcast.id) updatedPodcast else p
+                            }
                         }
-                    }.awaitAll().sortedByDescending { it.second }.map { it.first }
-                    _subscriptions.value = sortedPodcasts
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error fetching metadata for new subscription", e)
+                    }
                 }
             }.onFailure { _errorMessage.value = it.message }
         }
@@ -464,13 +459,19 @@ class PodcastViewModel(
                 result.onSuccess { podcast ->
                     if (!_subscriptions.value.any { it.id == podcast.id }) {
                         val updatedList = _subscriptions.value + podcast
-                        val sortedPodcasts = updatedList.map { p ->
-                            async {
-                                val latestEpisode = podcastDao.getLatestEpisodeForPodcast(p.id)
-                                p to latestEpisode?.publishDate
+                        _subscriptions.value = updatedList
+                    }
+                    // Fetch full metadata from API after successful subscription
+                    try {
+                        repository.getPodcastDetails(podcast.id).first().getOrNull()?.let { podcastDetails ->
+                            // Update the podcast in subscriptions with fetched metadata
+                            val updatedPodcast = podcastDetails.podcast
+                            _subscriptions.value = _subscriptions.value.map { p ->
+                                if (p.id == podcast.id) updatedPodcast else p
                             }
-                        }.awaitAll().sortedByDescending { it.second }.map { it.first }
-                        _subscriptions.value = sortedPodcasts
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error fetching metadata for RSS subscription", e)
                     }
                 }.onFailure {
                     _errorMessage.value = it.message
@@ -485,25 +486,21 @@ class PodcastViewModel(
     fun isSubscribed(podcastId: String): Boolean = _subscriptions.value.any { it.id == podcastId }
 
     fun fetchPodcastDetails(podcastId: String) {
+        _metadataLoading.value = true
         _episodesLoading.value = true
         _detailError.value = null
         viewModelScope.launch {
-            // Clear new episode count and stamp last viewed time since user is viewing it
             val now = System.currentTimeMillis()
-            podcastDao.resetNewCountAndStampViewed(podcastId, now)
+            podcastDao.updateLastViewedAt(podcastId, now)
             _subscriptions.value = _subscriptions.value.map { podcast ->
-                if (podcast.id == podcastId) podcast.copy(newEpisodeCount = 0, lastViewedAt = now) else podcast
+                if (podcast.id == podcastId) podcast.copy(lastViewedAt = now) else podcast
             }
 
-            // Ensure podcast exists in DB. If not, try to find it from search results
             var podcast = podcastDao.getPodcast(podcastId)
 
             if (podcast == null) {
-                // Podcast not in DB - might be from search results
-                // Try to find it in current search results
                 val searchResult = _searchResults.value.find { it.id == podcastId }
                 if (searchResult != null) {
-                    // Save it to DB so we can fetch details
                     podcastDao.insertPodcast(searchResult)
                     podcast = searchResult
                 } else {
@@ -511,73 +508,46 @@ class PodcastViewModel(
                 }
             }
 
-            // Reload from DB to make sure we have the latest persisted version
             podcast = podcastDao.getPodcast(podcastId) ?: podcast
 
-            // Immediately expose podcast details (without waiting for episodes)
             if (podcast != null) {
-                val isSubscribed = repository.isSubscribed(podcastId)
-                val initialEpisodes = if (isSubscribed) {
-                    // For followed podcasts, show any cached episodes right away
-                    podcastDao.getEpisodesForPodcast(podcastId)
-                } else {
-                    // For non-followed podcasts, we'll fetch a fresh list from iTunes
-                    emptyList()
-                }
-                _currentPodcastDetails.value = PodcastWithEpisodes(podcast, initialEpisodes)
-            }
+                _currentPodcastDetails.value = PodcastWithEpisodes(podcast, emptyList())
+                _metadataLoading.value = false
 
-            try {
-                val isSubscribed = repository.isSubscribed(podcastId)
-                val hasLocalEpisodes = podcastDao.getEpisodesForPodcast(podcastId).isNotEmpty()
-
-                if (isSubscribed && hasLocalEpisodes) {
-                    // Already showing cached episodes for a followed podcast – nothing more to load.
-                    val currentDetails = _currentPodcastDetails.value
-                    if (currentDetails != null && currentDetails.episodes.isNotEmpty()) {
-                        val episodeIds = currentDetails.episodes.map { it.id }
-                        val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
-                        _playbackPositions.value =
-                            _playbackPositions.value + positions.associateBy { it.episodeId }
-                    }
-                    _episodesLoading.value = false
-                    return@launch
-                }
-
-                // If it's not followed OR we don't have episodes in the DB,
-                // fetch a fresh list from iTunes (via repository helper).
-                repository.fetchAndUpdateEpisodes(
-                    podcastId = podcastId,
-                    skipCache = !isSubscribed || !hasLocalEpisodes
-                ).collect { result ->
-                    result.onSuccess { podcastWithEpisodes ->
-                        _currentPodcastDetails.value = podcastWithEpisodes
-                        podcastWithEpisodes?.let { details ->
-                            val episodeIds = details.episodes.map { it.id }
-                            val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
-                            // Merge new positions with existing cache instead of replacing
-                            _playbackPositions.value =
-                                _playbackPositions.value + positions.associateBy { it.episodeId }
-                        }
-                        _episodesLoading.value = false
-                    }.onFailure { exception ->
-                        Log.e(TAG, "Error fetching podcast details", exception)
-                        when (exception) {
-                            is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
-                            is FeedGoneException -> {
-                                // Check if it's a 403 error
-                                val errorCode = if (exception.message?.contains("403") == true) 403 else 410
-                                val message = exception.message ?: "Podcast feed unavailable"
-                                _detailError.value = errorCode to message
+                try {
+                    repository.getPodcastDetails(podcastId).collect { result ->
+                        result.onSuccess { podcastWithEpisodes ->
+                            if (podcastWithEpisodes != null) {
+                                _currentPodcastDetails.value = podcastWithEpisodes
+                                
+                                val episodeIds = podcastWithEpisodes.episodes.map { it.id }
+                                val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
+                                _playbackPositions.value =
+                                    _playbackPositions.value + positions.associateBy { it.episodeId }
                             }
-                            else -> _errorMessage.value = exception.message
+                            _episodesLoading.value = false
+                        }.onFailure { exception ->
+                            Log.e(TAG, "Error fetching episodes", exception)
+                            when (exception) {
+                                is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
+                                is FeedGoneException -> {
+                                    // Check if it's a 403 error
+                                    val errorCode = if (exception.message?.contains("403") == true) 403 else 410
+                                    val message = exception.message ?: "Podcast feed unavailable"
+                                    _detailError.value = errorCode to message
+                                }
+                                else -> _errorMessage.value = exception.message
+                            }
+                            _episodesLoading.value = false
                         }
-                        _episodesLoading.value = false
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Exception in fetchPodcastDetails", e)
+                    _errorMessage.value = e.message
+                    _episodesLoading.value = false
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception in fetchPodcastDetails", e)
-                _errorMessage.value = e.message
+            } else {
+                _metadataLoading.value = false
                 _episodesLoading.value = false
             }
         }
@@ -587,8 +557,9 @@ class PodcastViewModel(
         _episodesLoading.value = true
         viewModelScope.launch {
             try {
-                // Force refresh using unified method (no deletion; only new episodes added)
-                repository.getPodcastDetails(podcastId, forceRefresh = true).collect { result ->
+                // Invalidate cache for this specific podcast (refresh button clicked)
+                repository.invalidatePodcastEpisodeCache(podcastId)
+                repository.getPodcastDetails(podcastId).collect { result ->
                     result.onSuccess { podcastWithEpisodes ->
                         if (podcastWithEpisodes != null) {
                             _currentPodcastDetails.value = podcastWithEpisodes
@@ -616,28 +587,26 @@ class PodcastViewModel(
     fun refreshSubscribedPodcastEpisodes() {
         viewModelScope.launch {
             try {
+                // Invalidate cache for all podcasts (app init/foreground)
+                repository.invalidateAllEpisodeCache()
                 val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
                 val newCounts = mutableMapOf<String, Int>()
                 
                 for (podcast in subscribedPodcasts) {
                     try {
-                        val beforeCount = podcast.newEpisodeCount
-                        // Force refresh using unified method
-                        repository.getPodcastDetails(podcast.id, forceRefresh = true).first()
-                        // Compute delta from DB after refresh
-                        val afterPodcast = podcastDao.getPodcast(podcast.id)
-                        val delta = (afterPodcast?.newEpisodeCount ?: 0) - beforeCount
-                        if (delta > 0) {
-                            newCounts[podcast.id] = delta
+                        repository.getPodcastDetails(podcast.id).first().getOrNull()?.let { podcastDetails ->
+                            val newEpisodeCount = repository.updateNewEpisodeCount(podcast.id, podcastDetails.episodes)
+                            if (newEpisodeCount > 0) {
+                                newCounts[podcast.id] = newEpisodeCount
+                            }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                     }
                 }
                 
-                // Reload subscriptions from DB to get persisted newEpisodeCount values
                 val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
-                val allPodcasts = podcastDao.getSubscribedPodcastsSortedByLatestEpisode()
+                val allPodcasts = podcastDao.getAllPodcasts()
                 val updatedSubscriptions = allPodcasts.filter { subscriptionIds.contains(it.id) }
                 _subscriptions.value = updatedSubscriptions
                 
@@ -650,7 +619,6 @@ class PodcastViewModel(
 
     fun playEpisode(episode: Episode) {
         viewModelScope.launch {
-            // Save position of currently playing episode before switching
             if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
                 repository.savePlaybackPosition(
                     episodeId = _currentEpisode.value!!.id,
@@ -666,11 +634,7 @@ class PodcastViewModel(
 
             var details = currentPodcastDetails.value
             if (details == null || details.podcast.id != episode.podcastId) {
-                val podcastWithEpisodes = repository.getPodcastWithEpisodes(episode.podcastId)
-                if (podcastWithEpisodes != null) {
-                    _currentPodcastDetails.value = podcastWithEpisodes
-                    details = podcastWithEpisodes
-                }
+                details = null
             }
 
             var lastPosition = repository.getPlaybackPosition(episode.id)?.position ?: 0L
@@ -691,8 +655,6 @@ class PodcastViewModel(
                 .setArtworkUri(artworkUri)
                 .build()
 
-            val uri = episodeToPlay.audioUrl.toUri()
-
             val mediaItem = MediaItem.Builder()
                 .setUri(episodeToPlay.audioUrl)
                 .setMediaId(episode.id)
@@ -706,7 +668,6 @@ class PodcastViewModel(
             _currentEpisode.value = episodeToPlay
             _showFullPlayer.value = true
             
-            // Auto-start sleep timer if enabled
             if (settingsManager.isSleepTimerEnabledSync() && settingsManager.getSleepTimerMinutesSync() > 0) {
                 startSleepTimer()
             }
@@ -719,7 +680,6 @@ class PodcastViewModel(
         } else {
             mediaController?.play()
         }
-        // Save current position when user pauses
         if (!_isPlaying.value && _currentEpisode.value != null && _currentPosition.longValue > 0) {
             viewModelScope.launch {
                 repository.savePlaybackPosition(
@@ -733,14 +693,12 @@ class PodcastViewModel(
     fun seekForward() {
         val newPosition = (mediaController?.currentPosition ?: 0L) + (_skipSeconds.intValue * 1000L)
         mediaController?.seekTo(newPosition)
-        // Save position after seeking
         saveCurrentPosition()
     }
 
     fun seekBackward() {
         val newPosition = (mediaController?.currentPosition ?: 0L) - (_skipSeconds.intValue * 1000L)
         mediaController?.seekTo(newPosition)
-        // Save position after seeking
         saveCurrentPosition()
     }
 
@@ -757,7 +715,6 @@ class PodcastViewModel(
 
     fun seekTo(positionMs: Long) {
         mediaController?.seekTo(positionMs)
-        // Save position after user drags progress bar
         saveCurrentPosition()
     }
 
@@ -795,7 +752,6 @@ class PodcastViewModel(
 
     fun clearPodcastDetails() {
         _currentPodcastDetails.value = null
-        // Keep playback positions cached across podcast navigation
         _detailError.value = null
     }
 
@@ -877,23 +833,12 @@ class PodcastViewModel(
         }
     }
 
-    fun setSleepTimerMinutesAndRestart(minutes: Int) {
-        setSleepTimerMinutes(minutes)
-        startSleepTimer()
-    }
-
     fun stopSleepTimer() {
         sleepTimerJob?.cancel()
         sleepTimerJob = null
         _isSleepTimerActive.value = false
         settingsManager.setSleepTimerActive(false)
         _sleepTimerRemainingSeconds.longValue = 0L
-    }
-
-    fun resetSleepTimer() {
-        if (_sleepTimerEnabled.value && _sleepTimerMinutes.intValue > 0 && _isSleepTimerActive.value) {
-            startSleepTimer()
-        }
     }
 
     private fun registerPlaybackServiceErrorCallback() {
@@ -916,10 +861,6 @@ class PodcastViewModel(
             _isPlaying.value = false
             _isBuffering.value = false
         }
-    }
-
-    private fun onMediaControllerReady() {
-        applyPlaybackSpeed(_playbackSpeed.value)
     }
 
     override fun onCleared() {

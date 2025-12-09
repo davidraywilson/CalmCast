@@ -75,15 +75,15 @@ class SubscriptionManager(private val context: Context, private val podcastDao: 
         }
     }
 
-    suspend fun getSubscriptions(): List<PodcastWithEpisodes> = withContext(Dispatchers.IO) {
+    suspend fun getSubscriptions(): List<Podcast> = withContext(Dispatchers.IO) {
         try {
             val subscriptionIds = getSubscriptionIds()
             subscriptionIds.mapNotNull { id ->
-                val podcastWithEpisodes = podcastDao.getPodcastWithEpisodes(id)
-                if (podcastWithEpisodes == null) {
+                val podcast = podcastDao.getPodcast(id)
+                if (podcast == null) {
                     Log.w(TAG, "Podcast with id $id not found in database but exists in subscriptions")
                 }
-                podcastWithEpisodes
+                podcast
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting subscriptions", e)

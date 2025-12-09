@@ -3,8 +3,9 @@ package com.calmcast.podcast.data.download
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PodcastDao
+import com.calmcast.podcast.data.PodcastRepository
+import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.data.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +82,6 @@ class AndroidDownloadManager(
                                 var lastDbUpdateTime = System.currentTimeMillis()
                                 while (read >= 0) {
                                     if (pausedDownloads.contains(episodeId)) {
-                                        Log.d(TAG, "Download paused for ${episode.title}")
                                         downloadDao.insert(download.copy(status = DownloadStatus.PAUSED, progress = bytesCopied.toFloat() / totalBytes.toFloat(), downloadedBytes = bytesCopied, totalBytes = totalBytes))
                                         return@launch
                                     }
@@ -110,8 +110,6 @@ class AndroidDownloadManager(
                         } else {
                             val fileUri = Uri.fromFile(file).toString()
                             downloadDao.insert(download.copy(status = DownloadStatus.DOWNLOADED, progress = 1f, downloadUri = fileUri, downloadedBytes = bytesCopied, totalBytes = totalBytes))
-
-                            podcastDao?.updateEpisodeDownloadPath(episode.id, file.absolutePath)
                         }
                     } else {
                         Log.w(TAG, "No response body for episode: ${episode.title}")
@@ -140,7 +138,6 @@ class AndroidDownloadManager(
     }
 
     override fun cancelDownload(episodeId: String) {
-        Log.d(TAG, "Canceling download for episode: $episodeId")
         pausedDownloads.remove(episodeId)
         activeCalls[episodeId]?.cancel()
         activeDownloads[episodeId]?.cancel()
@@ -163,7 +160,6 @@ class AndroidDownloadManager(
 
     override fun pauseDownload(episodeId: String) {
         pausedDownloads.add(episodeId)
-        Log.d(TAG, "Download paused for episode: $episodeId")
         CoroutineScope(Dispatchers.IO).launch {
             val download = downloadDao.getByEpisodeId(episodeId)
             if (download != null && download.status == DownloadStatus.DOWNLOADING) {
@@ -173,7 +169,6 @@ class AndroidDownloadManager(
     }
 
     override fun resumeDownload(episodeId: String) {
-        Log.d(TAG, "Download resumed for episode: $episodeId")
         CoroutineScope(Dispatchers.IO).launch {
             val download = downloadDao.getByEpisodeId(episodeId)
             if (download != null && download.status == DownloadStatus.PAUSED) {
@@ -212,7 +207,6 @@ class AndroidDownloadManager(
             if (download != null) {
                 downloadDao.insert(download.copy(status = DownloadStatus.DELETED, downloadUri = null, progress = 0f, downloadedBytes = 0L, totalBytes = -1L))
             }
-            podcastDao?.updateEpisodeDownloadPath(episode.id, "")
         }
     }
 }

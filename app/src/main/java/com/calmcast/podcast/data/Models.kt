@@ -1,10 +1,7 @@
 package com.calmcast.podcast.data
 
-import androidx.room.Embedded
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
-import androidx.room.Relation
 
 @Entity(tableName = "podcasts")
 data class Podcast(
@@ -13,34 +10,7 @@ data class Podcast(
     val author: String,
     val description: String,
     val imageUrl: String?,
-    val episodeCount: Int,
     val feedUrl: String? = null,
-    val newEpisodeCount: Int = 0,
+    val lastSeenEpisodeId: String? = null,
     val lastViewedAt: Long = 0L
-)
-
-@Entity(tableName = "episodes", foreignKeys = [ForeignKey(entity = Podcast::class,
-    parentColumns = ["id"],
-    childColumns = ["podcastId"],
-    onDelete = ForeignKey.CASCADE)])
-data class Episode(
-    @PrimaryKey val id: String,
-    val podcastId: String,
-    val podcastTitle: String,
-    val title: String,
-    val description: String? = null,
-    val publishDate: String,
-    val publishDateMillis: Long = 0L,
-    val duration: String,
-    val audioUrl: String,
-    val downloadedPath: String? = null
-)
-
-data class PodcastWithEpisodes(
-    @Embedded val podcast: Podcast,
-    @Relation(
-        parentColumn = "id",
-        entityColumn = "podcastId"
-    )
-    val episodes: List<Episode> = emptyList()
 )

@@ -15,8 +15,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.Podcast
+import com.calmcast.podcast.data.PodcastRepository
+import com.calmcast.podcast.data.PodcastRepository.Episode
 
 @Composable
 fun PictureInPictureContent(

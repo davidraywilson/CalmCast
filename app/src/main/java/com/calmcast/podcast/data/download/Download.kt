@@ -3,14 +3,14 @@ package com.calmcast.podcast.data.download
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.calmcast.podcast.data.Episode
+import com.calmcast.podcast.data.PodcastRepository
 
 @Entity(tableName = "downloads")
 data class Download(
     @PrimaryKey
     val id: String, // episode.id - unique identifier for each download
     @Embedded(prefix = "episode_")
-    val episode: Episode,
+    val episode: PodcastRepository.Episode,
     val status: DownloadStatus,
     val progress: Float,
     val downloadUri: String? = null,

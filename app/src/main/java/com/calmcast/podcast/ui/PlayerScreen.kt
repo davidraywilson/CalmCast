@@ -32,7 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calmcast.podcast.data.Episode
+import com.calmcast.podcast.data.PodcastRepository
+import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.ui.common.DashedDivider
 import com.calmcast.podcast.utils.DateTimeFormatter
 import com.mudita.mmd.components.buttons.ButtonMMD

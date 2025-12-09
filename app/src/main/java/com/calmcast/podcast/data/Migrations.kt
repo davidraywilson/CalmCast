@@ -55,4 +55,22 @@ object Migrations {
             )
         }
     }
+
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Drop episodes table; episodes will no longer be cached in the database
+            database.execSQL("DROP TABLE IF EXISTS episodes")
+            
+            // Recreate podcasts table without episodeCount and newEpisodeCount columns
+            // SQLite doesn't support dropping columns, so we need to recreate the table
+            database.execSQL(
+                "CREATE TABLE podcasts_new (id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, imageUrl TEXT, feedUrl TEXT, lastSeenEpisodeId TEXT, lastViewedAt INTEGER NOT NULL)"
+            )
+            database.execSQL(
+                "INSERT INTO podcasts_new (id, title, author, description, imageUrl, feedUrl, lastViewedAt) SELECT id, title, author, description, imageUrl, feedUrl, lastViewedAt FROM podcasts"
+            )
+            database.execSQL("DROP TABLE podcasts")
+            database.execSQL("ALTER TABLE podcasts_new RENAME TO podcasts")
+        }
+    }
 }

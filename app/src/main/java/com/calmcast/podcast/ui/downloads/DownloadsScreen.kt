@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calmcast.podcast.data.PlaybackPosition
+import com.calmcast.podcast.data.PodcastRepository
 import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.ui.podcastdetail.EpisodeItem
 import com.mudita.mmd.components.lazy.LazyColumnMMD
@@ -26,11 +27,11 @@ fun DownloadsScreen(
     playbackPositions: Map<String, PlaybackPosition>,
     currentPlayingEpisodeId: String? = null,
     isBuffering: Boolean = false,
-    onEpisodeClick: (com.calmcast.podcast.data.Episode) -> Unit,
-    onDeleteClick: (com.calmcast.podcast.data.Episode) -> Unit,
-    onPauseClick: (com.calmcast.podcast.data.Episode) -> Unit = {},
-    onCancelClick: (com.calmcast.podcast.data.Episode) -> Unit = {},
-    onResumeClick: (com.calmcast.podcast.data.Episode) -> Unit = {},
+    onEpisodeClick: (PodcastRepository.Episode) -> Unit,
+    onDeleteClick: (PodcastRepository.Episode) -> Unit,
+    onPauseClick: (PodcastRepository.Episode) -> Unit = {},
+    onCancelClick: (PodcastRepository.Episode) -> Unit = {},
+    onResumeClick: (PodcastRepository.Episode) -> Unit = {},
     removeDividers: Boolean = false
 ) {
     val hasError = remember { mutableStateOf(false) }

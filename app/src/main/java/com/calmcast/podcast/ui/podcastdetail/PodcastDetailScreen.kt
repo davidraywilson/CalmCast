@@ -44,8 +44,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.MaterialTheme
 import com.mudita.mmd.components.bottom_sheet.ModalBottomSheetMMD
 import com.calmapps.calmcast.R
-import com.calmcast.podcast.data.Episode
 import com.calmcast.podcast.data.PlaybackPosition
+import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.data.Podcast
 import com.calmcast.podcast.data.download.Download
 import com.calmcast.podcast.data.download.DownloadStatus
@@ -98,117 +98,132 @@ fun PodcastDetailScreen(
 
     val downloadsByEpisodeId = remember(downloads) { downloads.associateBy { it.episode.id } }
 
-    LazyColumnMMD(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 16.dp, end = 0.dp, top = 0.dp, bottom = 0.dp)
+    Column(
+        modifier = Modifier.fillMaxSize()
     ) {
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SafeHtmlText(
-                html = podcast.description,
-                maxLines = 2,
-                onTruncated = { isTruncated -> isDescriptionTruncated = isTruncated }
-            )
-
-            if (isDescriptionTruncated) {
-                Text(
-                    text = "...read more",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { showDescriptionModal.value = true }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                SafeHtmlText(
+                    html = podcast.description,
+                    maxLines = 1,
+                    onTruncated = { isTruncated -> isDescriptionTruncated = isTruncated }
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Episodes (${podcast.episodeCount})",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isLoadingEpisodes) {
-                        CircularProgressIndicatorMMD(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .padding(end = 8.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = onRefreshClick,
-                        modifier = Modifier.size(20.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Refresh,
-                            contentDescription = "Refresh episodes",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+            Column {
+                if (isDescriptionTruncated) {
+                    Text(
+                        text = "read more",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { showDescriptionModal.value = true }
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            HorizontalDividerMMD(thickness = 3.dp)
         }
 
-        when {
-            isLoadingEpisodes && episodes.isEmpty() -> {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicatorMMD()
+        LazyColumnMMD(
+            modifier = Modifier
+                .fillMaxHeight()
+                .weight(1f)
+                .padding(start = 16.dp, end = 0.dp, top = 0.dp, bottom = 0.dp)
+        ) {
+            when {
+                isLoadingEpisodes && episodes.isEmpty() -> {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicatorMMD()
+                        }
                     }
                 }
-            }
 
-            episodes.isEmpty() -> {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(stringResource(R.string.no_episodes))
+                episodes.isEmpty() -> {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(stringResource(R.string.no_episodes))
+                        }
                     }
                 }
-            }
 
-            else -> {
-                itemsIndexed(episodes, key = { _, episode -> episode.id }) { index, episode ->
-                    val download = downloadsByEpisodeId[episode.id]
-                    val playbackPosition = playbackPositions[episode.id]
-                    val isCurrentlyPlaying = episode.id == currentPlayingEpisodeId
-                    EpisodeItem(
-                        episode = episode,
-                        download = download,
-                        isLastItem = index == episodes.lastIndex,
-                        playbackPosition = playbackPosition,
-                        isCurrentlyPlaying = isCurrentlyPlaying,
-                        isBuffering = isBuffering && isCurrentlyPlaying,
-                        onClick = { onEpisodeClick(episode) },
-                        onDownloadClick = { onDownloadClick(episode) },
-                        onDeleteClick = { onDeleteClick(episode) },
-                        onPauseClick = { onPauseClick(episode) },
-                        onCancelClick = { onCancelClick(episode) },
-                        onResumeClick = { onResumeClick(episode) },
-                        removeDividers = removeDividers
-                    )
+                else -> {
+                    itemsIndexed(episodes, key = { _, episode -> episode.id }) { index, episode ->
+                        val download = downloadsByEpisodeId[episode.id]
+                        val playbackPosition = playbackPositions[episode.id]
+                        val isCurrentlyPlaying = episode.id == currentPlayingEpisodeId
+
+                        if (index == 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Episodes (${episodes.size})",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (isLoadingEpisodes) {
+                                        CircularProgressIndicatorMMD(
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .padding(end = 8.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = onRefreshClick,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Refresh,
+                                            contentDescription = "Refresh episodes",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            HorizontalDividerMMD(thickness = 3.dp)
+                        }
+
+                        EpisodeItem(
+                            episode = episode,
+                            download = download,
+                            isLastItem = index == episodes.lastIndex,
+                            playbackPosition = playbackPosition,
+                            isCurrentlyPlaying = isCurrentlyPlaying,
+                            isBuffering = isBuffering && isCurrentlyPlaying,
+                            onClick = { onEpisodeClick(episode) },
+                            onDownloadClick = { onDownloadClick(episode) },
+                            onDeleteClick = { onDeleteClick(episode) },
+                            onPauseClick = { onPauseClick(episode) },
+                            onCancelClick = { onCancelClick(episode) },
+                            onResumeClick = { onResumeClick(episode) },
+                            removeDividers = removeDividers
+                        )
+                    }
                 }
             }
         }

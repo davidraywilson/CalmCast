@@ -29,17 +29,16 @@ import androidx.compose.ui.unit.sp
 import com.calmapps.calmcast.R
 import com.calmcast.podcast.data.Podcast
 import com.calmcast.podcast.ui.common.DashedDivider
+import com.mudita.mmd.components.badge.BadgeMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
+import com.mudita.mmd.components.text.TextMMD
 
 @Composable
 fun SubscriptionsScreen(
     podcasts: List<Podcast>,
     onPodcastClick: (Podcast) -> Unit,
-    showAddRSSModal: Boolean,
-    onShowAddRSSModal: (Boolean) -> Unit,
-    onAddRSSFeed: (String) -> Unit,
-    isAddingRSSFeed: Boolean,
-    removeDividers: Boolean = false
+    removeDividers: Boolean = false,
+    newEpisodeCounts: Map<String, Int> = emptyMap()
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         if (podcasts.isEmpty()) {
@@ -56,7 +55,7 @@ fun SubscriptionsScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 itemsIndexed(podcasts) { index, podcast ->
-                    PodcastCard(podcast = podcast, onClick = { onPodcastClick(podcast) })
+                    PodcastCard(podcast = podcast, newEpisodeCount = newEpisodeCounts[podcast.id] ?: 0, onClick = { onPodcastClick(podcast) })
 
                     if (index < podcasts.size - 1) {
                         if (!removeDividers) {
@@ -69,21 +68,13 @@ fun SubscriptionsScreen(
                 }
             }
         }
-
-        AddRSSFeedModal(
-            isVisible = showAddRSSModal,
-            onDismiss = { onShowAddRSSModal(false) },
-            onSave = { url ->
-                onAddRSSFeed(url)
-            },
-            isLoading = isAddingRSSFeed
-        )
     }
 }
 
 @Composable
 fun PodcastCard(
     podcast: Podcast,
+    newEpisodeCount: Int = 0,
     onClick: () -> Unit
 ) {
     Column(
@@ -113,28 +104,6 @@ fun PodcastCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    
-                    if (podcast.newEpisodeCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .size(24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.primary
-                            ) {
-                                Text(
-                                    text = podcast.newEpisodeCount.toString(),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(2.dp)
-                                )
-                            }
-                        }
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -148,12 +117,33 @@ fun PodcastCard(
                 )
             }
 
-            Icon(
-                imageVector = Icons.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(28.dp)
-            )
+            Column() {
+                Row() {
+                    if (newEpisodeCount > 0) {
+                        Column() {
+                            Box(
+                                modifier = Modifier.padding(start = 8.dp),
+                            ) {
+                                BadgeMMD {
+                                    TextMMD(
+                                        text = newEpisodeCount.toString(),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Column() {
+                        Icon(
+                            imageVector = Icons.Outlined.KeyboardArrowRight,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(28.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -77,8 +77,7 @@ object AppLifecycleTracker {
             )
             val subscriptions = subscriptionManager.getSubscriptions()
 
-            for (podcastWithEpisodes in subscriptions) {
-                val podcast = podcastWithEpisodes.podcast
+            for (podcast in subscriptions) {
                 try {
                     try {
                         repository.getPodcastDetails(podcast.id, forceRefresh = true).first()

@@ -42,13 +42,15 @@ class NewEpisodeWorker(
                 return Result.success()
             }
 
-            subscriptions.forEach { podcastWithEpisodes ->
-                val podcast = podcastWithEpisodes.podcast
+            subscriptions.forEach { podcast ->
                 try {
-                    val podcastDetailsResult = repository.getPodcastDetails(podcast.id, forceRefresh = true).first()
+                    val podcastDetailsResult = repository.getPodcastDetails(podcast.id).first()
                     podcastDetailsResult.onSuccess { podcastDetails ->
                         if (podcastDetails != null) {
-                            val latestEpisode = podcastDetails.episodes.maxByOrNull { it.publishDate }
+                            // Update badge count based on whether the most recent episode is new
+                            val newEpisodeCount = repository.updateNewEpisodeCount(podcast.id, podcastDetails.episodes)
+                            
+                            val latestEpisode = podcastDetails.episodes.maxByOrNull { it.publishDateMillis }
                             
                             if (latestEpisode != null) {
                                 val download = downloadDao.getByEpisodeId(latestEpisode.id)

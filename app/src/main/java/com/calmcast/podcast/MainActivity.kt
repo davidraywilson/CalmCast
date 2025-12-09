@@ -59,6 +59,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import com.calmcast.podcast.data.PodcastDatabase
+import com.calmcast.podcast.data.PodcastRepository
+import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.ui.FullPlayerScreen
 import com.calmcast.podcast.ui.PictureInPictureContent
@@ -266,7 +268,9 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                                 Text(
                                                     text = "by $author",
                                                     fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Normal
+                                                    fontWeight = FontWeight.Normal,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
@@ -284,8 +288,38 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 }
                             },
                             actions = {
-                                // Add subscriptions as a dependency to trigger recomposition
                                 viewModel.subscriptions.value
+
+                                if (viewModel.currentEpisode.value != null) {
+                                    Row {
+                                        ButtonMMD(
+                                            contentPadding = PaddingValues(0.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onBackground,
+                                                containerColor = MaterialTheme.colorScheme.background
+                                            ),
+                                            onClick = { viewModel.togglePlayPause() }
+                                        ) {
+                                            Icon(
+                                                imageVector = if (viewModel.isPlaying.value) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                                                contentDescription = if (viewModel.isPlaying.value) "Pause" else "Play"
+                                            )
+                                        }
+                                        ButtonMMD(
+                                            contentPadding = PaddingValues(0.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.onBackground,
+                                                containerColor = MaterialTheme.colorScheme.background
+                                            ),
+                                            onClick = { viewModel.showFullPlayer() }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Fullscreen,
+                                                contentDescription = "Open full screen player"
+                                            )
+                                        }
+                                    }
+                                }
                                 
                                 if (currentDestination?.route == "subscriptions") {
                                     ButtonMMD(
@@ -301,12 +335,11 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                             contentDescription = "Search"
                                         )
                                     }
+                                }
+                                if (currentDestination?.route == "search") {
                                     ButtonMMD(
-                                        contentPadding = PaddingValues(0.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = MaterialTheme.colorScheme.onBackground,
-                                            containerColor = MaterialTheme.colorScheme.background
-                                        ),
+                                        modifier = Modifier.padding(end = 8.dp),
+                                        contentPadding = PaddingValues(vertical = 2.dp, horizontal = 2.dp),
                                         onClick = { showAddRSSModal.value = true }
                                     ) {
                                         Icon(
@@ -342,36 +375,6 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                             Icon(
                                                 imageVector = if (viewModel.isSubscribed(podcast.id)) Icons.Filled.Star else Icons.Outlined.StarBorder,
                                                 contentDescription = if (viewModel.isSubscribed(podcast.id)) "Unfollow" else "Follow"
-                                            )
-                                        }
-                                    }
-                                }
-                                if (viewModel.currentEpisode.value != null) {
-                                    Row {
-                                        ButtonMMD(
-                                            contentPadding = PaddingValues(0.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                contentColor = MaterialTheme.colorScheme.onBackground,
-                                                containerColor = MaterialTheme.colorScheme.background
-                                            ),
-                                            onClick = { viewModel.togglePlayPause() }
-                                        ) {
-                                            Icon(
-                                                imageVector = if (viewModel.isPlaying.value) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                                                contentDescription = if (viewModel.isPlaying.value) "Pause" else "Play"
-                                            )
-                                        }
-                                        ButtonMMD(
-                                            contentPadding = PaddingValues(0.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                contentColor = MaterialTheme.colorScheme.onBackground,
-                                                containerColor = MaterialTheme.colorScheme.background
-                                            ),
-                                            onClick = { viewModel.showFullPlayer() }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Fullscreen,
-                                                contentDescription = "Open full screen player"
                                             )
                                         }
                                     }
@@ -434,29 +437,11 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                         SubscriptionsScreen(
                             podcasts = viewModel.subscriptions.value,
                             onPodcastClick = { podcast ->
-                                // Clear any existing podcast details so we don't briefly show the
-                                // previous podcast when navigating to a new one
                                 viewModel.clearPodcastDetails()
                                 navController.navigate("detail/${podcast.id}")
                             },
-                            showAddRSSModal = showAddRSSModal.value,
-                            onShowAddRSSModal = { show -> showAddRSSModal.value = show },
-                            onAddRSSFeed = { url ->
-                                viewModel.subscribeToRSSUrl(url) { result ->
-                                    scope.launch {
-                                        if (result.isSuccess) {
-                                            val p = result.getOrNull()
-                                            snackbarHostState.showSnackbar("Now following ${p?.title ?: "podcast"}")
-                                            showAddRSSModal.value = false
-                                        } else {
-                                            val message = result.exceptionOrNull()?.message ?: "Failed to add RSS feed"
-                                            snackbarHostState.showSnackbar(message)
-                                        }
-                                    }
-                                }
-                            },
-                            isAddingRSSFeed = viewModel.isAddingRSSFeed.value,
-                            removeDividers = viewModel.removeHorizontalDividers.value
+                            removeDividers = viewModel.removeHorizontalDividers.value,
+                            newEpisodeCounts = viewModel.newEpisodeCounts.value
                         )
                     }
                     composable(
@@ -470,8 +455,6 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             searchQuery = viewModel.searchQuery.value,
                             searchResults = viewModel.searchResults.value,
                             onPodcastClick = { podcast ->
-                                // Clear any existing podcast details so we don't briefly show the
-                                // previous podcast when navigating to a new one
                                 viewModel.clearPodcastDetails()
                                 navController.navigate("detail/${podcast.id}")
                             },
@@ -489,7 +472,24 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                     }
                                 }
                             },
-                            removeDividers = viewModel.removeHorizontalDividers.value
+                            removeDividers = viewModel.removeHorizontalDividers.value,
+                            showAddRSSModal = showAddRSSModal.value,
+                            onShowAddRSSModal = { show -> showAddRSSModal.value = show },
+                            onAddRSSFeed = { url ->
+                                viewModel.subscribeToRSSUrl(url) { result ->
+                                    scope.launch {
+                                        if (result.isSuccess) {
+                                            val p = result.getOrNull()
+                                            snackbarHostState.showSnackbar("Now following ${p?.title ?: "podcast"}")
+                                            showAddRSSModal.value = false
+                                        } else {
+                                            val message = result.exceptionOrNull()?.message ?: "Failed to add RSS feed"
+                                            snackbarHostState.showSnackbar(message)
+                                        }
+                                    }
+                                }
+                            },
+                            isAddingRSSFeed = viewModel.isAddingRSSFeed.value
                         )
                     }
                     composable(
@@ -531,22 +531,22 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 isLoadingEpisodes = isLoadingEpisodes,
                                 isBuffering = viewModel.isBuffering.value,
                                 currentPlayingEpisodeId = viewModel.currentEpisode.value?.id,
-                                onEpisodeClick = { episode ->
+                                onEpisodeClick = { episode: Episode ->
                                     viewModel.playEpisode(episode)
                                 },
-                                onDownloadClick = { episode ->
+                                onDownloadClick = { episode: Episode ->
                                     viewModel.downloadEpisode(episode)
                                 },
-                                onDeleteClick = { episode ->
+                                onDeleteClick = { episode: Episode ->
                                     viewModel.deleteEpisode(episode)
                                 },
-                                onPauseClick = { episode ->
+                                onPauseClick = { episode: Episode ->
                                     viewModel.pauseDownload(episode.id)
                                 },
-                                onCancelClick = { episode ->
+                                onCancelClick = { episode: Episode ->
                                     viewModel.cancelDownload(episode.id)
                                 },
-                                onResumeClick = { episode ->
+                                onResumeClick = { episode: Episode ->
                                     viewModel.resumeDownload(episode.id)
                                 },
                                 onRefreshClick = {

@@ -38,7 +38,6 @@ object StorageManager {
     private fun getInternalStorageDir(context: Context): File {
         return context.filesDir.also {
             it.mkdirs()
-            Log.d(TAG, "Using internal storage: ${it.absolutePath}")
         }
     }
 
