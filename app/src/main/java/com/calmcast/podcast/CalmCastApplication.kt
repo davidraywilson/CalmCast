@@ -55,7 +55,7 @@ class CalmCastApplication : Application(), Configuration.Provider {
             downloadDao.deleteInvalidDownloads()
         }
 
-        AppLifecycleTracker.initialize(subscriptionManager, settingsManager, podcastDao)
+        AppLifecycleTracker.initialize(subscriptionManager, settingsManager, podcastDao, null)
         setupNewEpisodeWorker()
     }
 

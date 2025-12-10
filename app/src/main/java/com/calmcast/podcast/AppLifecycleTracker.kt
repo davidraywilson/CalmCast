@@ -38,17 +38,22 @@ object AppLifecycleTracker {
         onRefreshCallback = refreshCallback
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
+                Log.d(TAG, "Lifecycle event: $event, callback is null: ${onRefreshCallback == null}")
                 when (event) {
                     Lifecycle.Event.ON_START -> {
+                        Log.d(TAG, "ON_START triggered")
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 val settings = settingsManager ?: return@launch
                                 val subMgr = subscriptionManager ?: return@launch
                                 val dao = podcastDao ?: return@launch
                                 
+                                Log.d(TAG, "About to call refresh callback")
                                 if (onRefreshCallback != null) {
+                                    Log.d(TAG, "Calling onRefreshCallback")
                                     onRefreshCallback?.invoke()
                                 } else {
+                                    Log.d(TAG, "Calling refreshAllPodcastEpisodesDirectly")
                                     refreshAllPodcastEpisodesDirectly(subMgr, dao)
                                 }
                                 

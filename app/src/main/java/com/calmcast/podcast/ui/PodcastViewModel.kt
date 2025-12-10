@@ -356,35 +356,11 @@ class PodcastViewModel(
                 
                 _subscriptions.value = podcasts
                 _isLoading.value = false
-                checkForNewEpisodes()
                 refreshSubscribedPodcastEpisodes()
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading initial data", e)
                 _errorMessage.value = e.message
                 _isLoading.value = false
-            }
-        }
-    }
-
-    private fun checkForNewEpisodes() {
-        viewModelScope.launch {
-            if (settingsManager.isAutoDownloadEnabled()) {
-                val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
-                for (podcast in subscribedPodcasts) {
-                    val podcastDetails = repository.getPodcastDetails(podcast.id, forceRefresh = true).first().getOrNull()
-                    val latestEpisode = podcastDetails?.episodes?.firstOrNull()
-                    if (latestEpisode != null) {
-                        val existingDownload = _downloads.value.find { it.episode.id == latestEpisode.id }
-                        // Only auto-download if:
-                        // 1. No record exists (never attempted)
-                        // 2. Status is not DELETED (user didn't explicitly delete it)
-                        if (existingDownload == null || existingDownload.status.name != "DELETED") {
-                            if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
-                                downloadManager.startDownload(latestEpisode)
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -567,9 +543,6 @@ class PodcastViewModel(
                             val episodeIds = podcastWithEpisodes.episodes.map { it.id }
                             val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
                             _playbackPositions.value = _playbackPositions.value + positions.associateBy { it.episodeId }
-                            if (settingsManager.isAutoDownloadEnabled()) {
-                                checkForNewEpisodes()
-                            }
                         }
                         _episodesLoading.value = false
                     }.onFailure { exception ->
@@ -594,10 +567,32 @@ class PodcastViewModel(
                 
                 for (podcast in subscribedPodcasts) {
                     try {
-                        repository.getPodcastDetails(podcast.id).first().getOrNull()?.let { podcastDetails ->
-                            val newEpisodeCount = repository.updateNewEpisodeCount(podcast.id, podcastDetails.episodes)
-                            if (newEpisodeCount > 0) {
-                                newCounts[podcast.id] = newEpisodeCount
+                        val episodes = repository.getPodcastDetails(podcast.id).first().getOrNull()?.episodes
+
+                        if (episodes != null) {
+                            val lastSeenEpisode = episodes.find { it.id == podcast.lastSeenEpisodeId }
+                            if (lastSeenEpisode != null) {
+                                val index = episodes.indexOf(lastSeenEpisode)
+                                newCounts[podcast.id] = index
+                            }
+                        }
+
+                        if (settingsManager.isAutoDownloadEnabled()) {
+                            // slice new episodes and download them
+                            val newEpisodes = episodes?.slice(
+                                (newCounts[podcast.id] ?: (0 until episodes.size)) as IntRange
+                            ) ?: emptyList()
+
+                            newEpisodes.forEach { episode ->
+                                val existingDownload = _downloads.value.find { it.episode.id == episode.id }
+                                // Only auto-download if:
+                                // 1. No record exists (never attempted)
+                                // 2. Status is not DELETED (user didn't explicitly delete it)
+                                if (existingDownload == null || existingDownload.status.name != "DELETED") {
+                                    if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
+                                        downloadManager.startDownload(episode)
+                                    }
+                                }
                             }
                         }
                     } catch (e: Exception) {

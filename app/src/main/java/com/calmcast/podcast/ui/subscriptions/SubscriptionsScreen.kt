@@ -11,12 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,7 +28,6 @@ import com.calmcast.podcast.data.Podcast
 import com.calmcast.podcast.ui.common.DashedDivider
 import com.mudita.mmd.components.badge.BadgeMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
-import com.mudita.mmd.components.text.TextMMD
 
 @Composable
 fun SubscriptionsScreen(
@@ -53,8 +49,7 @@ fun SubscriptionsScreen(
         } else {
             LazyColumnMMD(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 16.dp),
+                    .fillMaxSize(),
             ) {
                 itemsIndexed(podcasts) { index, podcast ->
                     PodcastCard(podcast = podcast, newEpisodeCount = newEpisodeCounts[podcast.id] ?: 0, onClick = { onPodcastClick(podcast) })
@@ -126,12 +121,14 @@ fun PodcastCard(
                             Box(
                                 modifier = Modifier.padding(start = 8.dp),
                             ) {
-                                BadgeMMD {
-                                    TextMMD(
-                                        text = newEpisodeCount.toString(),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                BadgeMMD(
+                                    content = {
+                                        Text(
+                                            text = "$newEpisodeCount",
+                                            fontSize = 12.sp,
+                                        )
+                                    }
+                                )
                             }
                         }
                     }

@@ -88,65 +88,6 @@ class PodcastRepository(
         val episodes: List<Episode>
     )
 
-    // Load podcast metadata from database (fast), with API fallback
-    fun getPodcastMetadata(podcastId: String): Flow<Result<Podcast?>> = flow {
-        val podcast = podcastDao.getPodcast(podcastId)
-        if (podcast != null) {
-            emit(Result.success(podcast))
-        } else {
-            // If not in DB, we can't fetch from API without the feed URL
-            // Return null and let the caller handle it
-            emit(Result.success(null))
-        }
-    }.catch { e -> emit(Result.failure<Podcast?>(e)) }
-
-    // Fetch episodes from API separately
-    fun getEpisodes(podcastId: String): Flow<Result<List<Episode>>> = flow<Result<List<Episode>>> {
-        val podcast = podcastDao.getPodcast(podcastId)
-        if (podcast == null || podcast.feedUrl == null) {
-            emit(Result.failure(Exception("Podcast not found or no feed URL available")))
-            return@flow
-        }
-
-        val result = apiService.getPodcastDetails(podcastId = podcastId, feedUrl = podcast.feedUrl)
-        result.fold(
-            onSuccess = { response ->
-                val episodes = response.episodes.map { episodeResult ->
-                    val stableId = "${podcast.id}|${episodeResult.title}|${episodeResult.audioUrl}".hashCode().toString()
-                    Episode(
-                        id = stableId,
-                        podcastId = podcast.id,
-                        podcastTitle = podcast.title,
-                        title = episodeResult.title,
-                        description = episodeResult.description,
-                        publishDate = episodeResult.pubDate,
-                        publishDateMillis = DateTimeFormatter.parseDateToMillis(episodeResult.pubDate) ?: 0L,
-                        duration = episodeResult.duration,
-                        audioUrl = episodeResult.audioUrl
-                    )
-                }
-
-                // Update the podcast with the most recent episode ID and description
-                val mostRecentEpisodeId = episodes.maxByOrNull { it.publishDateMillis }?.id
-                if (mostRecentEpisodeId != null && mostRecentEpisodeId != podcast.lastSeenEpisodeId) {
-                    podcastDao.updateLastSeenEpisodeId(podcast.id, mostRecentEpisodeId)
-                }
-
-                val episodesSorted = episodes.sortedByDescending { it.publishDateMillis }
-                emit(Result.success(episodesSorted))
-            },
-            onFailure = { exception ->
-                Log.e("PodcastRepository", "Error fetching podcast episodes", exception)
-                emit(Result.failure(exception))
-            }
-        )
-    }
-        .catch { e ->
-            Log.e("PodcastRepository", "Exception in getEpisodes", e)
-            emit(Result.failure<List<Episode>>(e))
-        }
-        .flowOn(Dispatchers.IO)
-
     // Unified entrypoint: always fetches fresh episodes from API
     fun getPodcastDetails(podcastId: String, forceRefresh: Boolean = false): Flow<Result<PodcastWithEpisodes?>> =
         fetchAndUpdateEpisodes(podcastId = podcastId)
@@ -194,14 +135,6 @@ class PodcastRepository(
             }
         } catch (e: Exception) {
             Result.failure(e)
-        }
-    }
-
-    suspend fun isSubscribed(podcastId: String): Boolean {
-        return try {
-            subscriptionManager.isSubscribed(podcastId)
-        } catch (e: Exception) {
-            false
         }
     }
 

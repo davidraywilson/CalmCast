@@ -1,5 +1,6 @@
 package com.calmcast.podcast
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -104,6 +105,7 @@ class MainActivity : ComponentActivity() {
     private val pipStateHolder = mutableStateOf(false)
     private lateinit var settingsManager: SettingsManager
     private var isPlayingFlag: Boolean = false
+    private var refreshCallback: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,9 +114,16 @@ class MainActivity : ComponentActivity() {
             ThemeMMD {
                 CalmCastApp(pipStateHolder, settingsManager, onIsPlayingChanged = { isPlaying ->
                     isPlayingFlag = isPlaying
+                }, onRefreshCallbackReady = { callback ->
+                    refreshCallback = callback
                 })
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshCallback?.invoke()
     }
 
     override fun onUserLeaveHint() {
@@ -144,9 +153,10 @@ class MainActivity : ComponentActivity() {
 }
 
 
+@SuppressLint("ContextCastToActivity")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, settingsManager: SettingsManager, onIsPlayingChanged: (Boolean) -> Unit) {
+fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, settingsManager: SettingsManager, onIsPlayingChanged: (Boolean) -> Unit, onRefreshCallbackReady: (((() -> Unit)?) -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostStateMMD() }
     val isInPiP = pipStateHolder
@@ -160,13 +170,12 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
     val downloadDao = database.downloadDao()
     val viewModel: PodcastViewModel = viewModel(factory = PodcastViewModelFactory(application, podcastDao, playbackPositionDao, downloadDao, settingsManager))
 
-    DisposableEffect(Unit) {
-        AppLifecycleTracker.setRefreshCallback {
+    LaunchedEffect(Unit) {
+        val callback = {
             viewModel.refreshSubscribedPodcastEpisodes()
         }
-        onDispose {
-            AppLifecycleTracker.setRefreshCallback(null)
-        }
+        AppLifecycleTracker.setRefreshCallback(callback)
+        onRefreshCallbackReady?.invoke(callback)
     }
 
     LaunchedEffect(Unit) {
@@ -599,7 +608,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                         popExitTransition = { ExitTransition.None }
                     ) {
                         SettingsScreen(
-                    settingsManager = settingsManager,
+                            settingsManager = settingsManager,
                             isPictureInPictureEnabled = viewModel.isPictureInPictureEnabled.value,
                             onPictureInPictureToggle = { enabled ->
                                 viewModel.setPictureInPictureEnabled(enabled)
