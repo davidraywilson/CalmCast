@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.key
 import androidx.compose.ui.unit.sp
+import com.mudita.mmd.components.switcher.SwitchMMD
 import com.mudita.mmd.components.text.TextMMD
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +54,9 @@ fun SettingsScreen(
     onDownloadLocationChange: (DownloadLocation) -> Unit = {},
     isExternalStorageAvailable: Boolean = false,
     playbackSpeed: Float = 1f,
-    onPlaybackSpeedChange: (Float) -> Unit = {}
+    onPlaybackSpeedChange: (Float) -> Unit = {},
+    isAutoPlayNextEpisodeEnabled: Boolean = false,
+    onAutoPlayNextEpisodeToggle: (Boolean) -> Unit = {}
 ) {
     val skipOptions = listOf(5, 10, 15, 30)
     val sleepTimerOptions = listOf(5, 10, 15, 30, 45, 60)
@@ -94,11 +97,35 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             TextMMD(
+                                text = "Autoplay next episode",
+                                fontSize = 16.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SwitchMMD(
+                                checked = isAutoPlayNextEpisodeEnabled,
+                                onCheckedChange = onAutoPlayNextEpisodeToggle
+                            )
+                        }
+                        if (!removeHorizontalDividers) {
+                            DashedDivider(
+                                modifier = Modifier.padding(start = 16.dp),
+                                thickness = 1.dp
+                            )
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextMMD(
                                 text = "Enable Picture-in-Picture",
                                 fontSize = 16.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            Switch(
+                            SwitchMMD(
                                 checked = isPictureInPictureEnabled,
                                 onCheckedChange = onPictureInPictureToggle
                             )
@@ -122,7 +149,7 @@ fun SettingsScreen(
                                 fontSize = 16.sp,
                                 modifier = Modifier.weight(1f),
                             )
-                            Switch(
+                            SwitchMMD(
                                 checked = sleepTimerEnabled,
                                 onCheckedChange = onSleepTimerEnabledChange
                             )
@@ -238,7 +265,7 @@ fun SettingsScreen(
                                 fontSize = 16.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            Switch(
+                            SwitchMMD(
                                 checked = isAutoDownloadEnabled,
                                 onCheckedChange = onAutoDownloadToggle
                             )
@@ -316,7 +343,7 @@ fun SettingsScreen(
                                 fontSize = 16.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            Switch(
+                            SwitchMMD(
                                 checked = isKeepScreenOnEnabled,
                                 onCheckedChange = onKeepScreenOnToggle
                             )
@@ -340,7 +367,7 @@ fun SettingsScreen(
                                 fontSize = 16.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            Switch(
+                            SwitchMMD(
                                 checked = removeHorizontalDividers,
                                 onCheckedChange = onRemoveHorizontalDividersToggle
                             )

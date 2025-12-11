@@ -12,5 +12,5 @@ data class Podcast(
     val imageUrl: String?,
     val feedUrl: String? = null,
     val lastSeenEpisodeId: String? = null,
-    val lastViewedAt: Long = 0L
+    val newEpisodeCount: Int = 0
 )

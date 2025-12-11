@@ -73,9 +73,6 @@ class PodcastViewModel(
     private val _subscriptions = mutableStateOf<List<Podcast>>(emptyList())
     val subscriptions: State<List<Podcast>> = _subscriptions
 
-    private val _newEpisodeCounts = mutableStateOf<Map<String, Int>>(emptyMap())
-    val newEpisodeCounts: State<Map<String, Int>> = _newEpisodeCounts
-
     private val _searchResults = mutableStateOf<List<Podcast>>(emptyList())
     val searchResults: State<List<Podcast>> = _searchResults
 
@@ -175,6 +172,9 @@ class PodcastViewModel(
     private val _playbackSpeed = mutableStateOf(1f)
     val playbackSpeed: State<Float> = _playbackSpeed
 
+    private val _isAutoPlayNextEpisodeEnabled = mutableStateOf(false)
+    val isAutoPlayNextEpisodeEnabled: State<Boolean> = _isAutoPlayNextEpisodeEnabled
+
     private var searchJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var lastSaveTime: Long = 0L
@@ -264,6 +264,11 @@ class PodcastViewModel(
                 applyPlaybackSpeed(it)
             }
         }
+        viewModelScope.launch {
+            settingsManager.isAutoPlayNextEpisodeEnabled.collect {
+                _isAutoPlayNextEpisodeEnabled.value = it
+            }
+        }
     }
 
     private inner class PlayerListener : Player.Listener {
@@ -279,7 +284,23 @@ class PodcastViewModel(
         override fun onPlaybackStateChanged(playbackState: Int) {
             _isPlayerReady.value = playbackState == Player.STATE_READY
             _isBuffering.value = playbackState == Player.STATE_BUFFERING
-            if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
+            if (playbackState == Player.STATE_ENDED && settingsManager.isAutoPlayNextEpisodeEnabledSync()) {
+                // if autoplay is enabled, play the next episode from the same podcast
+                // it should find the immediate next podcast that is newer than the current one
+                val currentPodcast = _currentPodcastDetails.value?.podcast
+                if (currentPodcast != null) {
+                    val episodes = _currentPodcastDetails.value?.episodes
+                    val currentIndex = episodes?.indexOf(_currentEpisode.value)
+                    val nextEpisode = if (currentIndex != null && currentIndex > 0) episodes[currentIndex - 1] else null
+
+                    // when we find one, play it
+                    if (nextEpisode != null) {
+                        playEpisode(nextEpisode, restart = true)
+                    }
+                }
+            }
+
+            else if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
                 _currentEpisode.value = null
                 stopPositionUpdates()
             }
@@ -466,11 +487,6 @@ class PodcastViewModel(
         _episodesLoading.value = true
         _detailError.value = null
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            podcastDao.updateLastViewedAt(podcastId, now)
-            _subscriptions.value = _subscriptions.value.map { podcast ->
-                if (podcast.id == podcastId) podcast.copy(lastViewedAt = now) else podcast
-            }
 
             var podcast = podcastDao.getPodcast(podcastId)
 
@@ -570,27 +586,26 @@ class PodcastViewModel(
                         val episodes = repository.getPodcastDetails(podcast.id).first().getOrNull()?.episodes
 
                         if (episodes != null) {
+                            var index = 0
                             val lastSeenEpisode = episodes.find { it.id == podcast.lastSeenEpisodeId }
                             if (lastSeenEpisode != null) {
-                                val index = episodes.indexOf(lastSeenEpisode)
-                                newCounts[podcast.id] = index
+                                index = episodes.indexOf(lastSeenEpisode) + 1
+                                podcastDao.updateNewEpisodeCount(podcast.id, index)
                             }
-                        }
 
-                        if (settingsManager.isAutoDownloadEnabled()) {
-                            // slice new episodes and download them
-                            val newEpisodes = episodes?.slice(
-                                (newCounts[podcast.id] ?: (0 until episodes.size)) as IntRange
-                            ) ?: emptyList()
+                            if (settingsManager.isAutoDownloadEnabled() && index > 0) {
+                                // slice new episodes that are from 0 to index
+                                val newEpisodes = episodes.slice(0 until index)
 
-                            newEpisodes.forEach { episode ->
-                                val existingDownload = _downloads.value.find { it.episode.id == episode.id }
-                                // Only auto-download if:
-                                // 1. No record exists (never attempted)
-                                // 2. Status is not DELETED (user didn't explicitly delete it)
-                                if (existingDownload == null || existingDownload.status.name != "DELETED") {
-                                    if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
-                                        downloadManager.startDownload(episode)
+                                newEpisodes.forEach { episode ->
+                                    val existingDownload = _downloads.value.find { it.episode.id == episode.id }
+                                    // Only auto-download if:
+                                    // 1. No record exists (never attempted)
+                                    // 2. Status is not DELETED (user didn't explicitly delete it)
+                                    if (existingDownload == null || existingDownload.status.name != "DELETED") {
+                                        if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
+                                            downloadManager.startDownload(episode)
+                                        }
                                     }
                                 }
                             }
@@ -599,20 +614,13 @@ class PodcastViewModel(
                         Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                     }
                 }
-                
-                val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
-                val allPodcasts = podcastDao.getAllPodcasts()
-                val updatedSubscriptions = allPodcasts.filter { subscriptionIds.contains(it.id) }
-                _subscriptions.value = updatedSubscriptions
-                
-                _newEpisodeCounts.value = newCounts
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing all podcast episodes", e)
             }
         }
     }
 
-    fun playEpisode(episode: Episode) {
+    fun playEpisode(episode: Episode, restart: Boolean = false) {
         viewModelScope.launch {
             if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
                 repository.savePlaybackPosition(
@@ -632,12 +640,15 @@ class PodcastViewModel(
                 details = null
             }
 
-            var lastPosition = repository.getPlaybackPosition(episode.id)?.position ?: 0L
-            val durationInSeconds = DateTimeFormatter.parseDuration(episode.duration)
-            if (durationInSeconds != null && lastPosition > 0) {
-                val durationInMilliseconds = durationInSeconds * 1000
-                if (lastPosition.toDouble() / durationInMilliseconds > 0.99) {
-                    lastPosition = 0L
+            var lastPosition = 0L
+            if (!restart) {
+                lastPosition = repository.getPlaybackPosition(episode.id)?.position ?: 0L
+                val durationInSeconds = DateTimeFormatter.parseDuration(episode.duration)
+                if (durationInSeconds != null && lastPosition > 0) {
+                    val durationInMilliseconds = durationInSeconds * 1000
+                    if (lastPosition.toDouble() / durationInMilliseconds > 0.99) {
+                        lastPosition = 0L
+                    }
                 }
             }
 
@@ -835,6 +846,12 @@ class PodcastViewModel(
         settingsManager.setSleepTimerActive(false)
         _sleepTimerRemainingSeconds.longValue = 0L
     }
+
+    fun setAutoPlayEpisodeEnabled(enabled: Boolean) {
+        settingsManager.setAutoPlayNextEpisodeEnabled(enabled)
+    }
+
+
 
     private fun registerPlaybackServiceErrorCallback() {
         PlaybackService.setErrorCallback { error ->

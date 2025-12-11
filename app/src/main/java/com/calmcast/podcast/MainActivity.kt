@@ -60,7 +60,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import com.calmcast.podcast.data.PodcastDatabase
-import com.calmcast.podcast.data.PodcastRepository
 import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.ui.FullPlayerScreen
@@ -365,7 +364,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                             contentDescription = "Search"
                                         )
                                     }
-
+                                }
+                                if (currentDestination?.route == "search") {
                                     ButtonMMD(
                                         contentPadding = PaddingValues(0.dp),
                                         modifier = Modifier.padding(end = 8.dp),
@@ -470,7 +470,6 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 navController.navigate("detail/${podcast.id}")
                             },
                             removeDividers = viewModel.removeHorizontalDividers.value,
-                            newEpisodeCounts = viewModel.newEpisodeCounts.value
                         )
                     }
                     composable(
@@ -645,6 +644,10 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             playbackSpeed = viewModel.playbackSpeed.value,
                             onPlaybackSpeedChange = { speed ->
                                 viewModel.setPlaybackSpeed(speed)
+                            },
+                            isAutoPlayNextEpisodeEnabled = viewModel.isAutoPlayNextEpisodeEnabled.value,
+                            onAutoPlayNextEpisodeToggle = { enabled ->
+                                viewModel.setAutoPlayEpisodeEnabled(enabled)
                             }
                         )
                     }
@@ -676,7 +679,9 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                     onSleepTimerMinutesChange = { minutes -> viewModel.setSleepTimerMinutes(minutes) },
                     playbackSpeed = viewModel.playbackSpeed.value,
                     onPlaybackSpeedClick = { viewModel.cyclePlaybackSpeed() },
-                    onPlaybackSpeedChange = { speed -> viewModel.setPlaybackSpeed(speed) }
+                    onPlaybackSpeedChange = { speed -> viewModel.setPlaybackSpeed(speed) },
+                    isAutoPlayNextEpisodeEnabled = viewModel.isAutoPlayNextEpisodeEnabled.value,
+                    onAutoPlayNextEpisodeToggle = { enabled -> viewModel.setAutoPlayEpisodeEnabled(enabled) }
                 )
             }
         }

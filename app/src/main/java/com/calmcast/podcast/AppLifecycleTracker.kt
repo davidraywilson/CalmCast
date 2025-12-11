@@ -56,8 +56,6 @@ object AppLifecycleTracker {
                                     Log.d(TAG, "Calling refreshAllPodcastEpisodesDirectly")
                                     refreshAllPodcastEpisodesDirectly(subMgr, dao)
                                 }
-                                
-                                settings.setLastEpisodeRefreshTime(System.currentTimeMillis())
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error refreshing episodes", e)
                             }

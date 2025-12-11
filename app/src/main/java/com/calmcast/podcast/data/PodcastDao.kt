@@ -17,8 +17,8 @@ interface PodcastDao {
     @Query("UPDATE podcasts SET lastSeenEpisodeId = :episodeId WHERE id = :podcastId")
     suspend fun updateLastSeenEpisodeId(podcastId: String, episodeId: String)
 
-    @Query("UPDATE podcasts SET lastViewedAt = :timestamp WHERE id = :podcastId")
-    suspend fun updateLastViewedAt(podcastId: String, timestamp: Long)
+    @Query("UPDATE podcasts SET newEpisodeCount = :count WHERE id = :podcastId")
+    suspend fun updateNewEpisodeCount(podcastId: String, count: Int)
 
     @Query("SELECT * FROM podcasts ORDER BY title ASC")
     suspend fun getAllPodcasts(): List<Podcast>

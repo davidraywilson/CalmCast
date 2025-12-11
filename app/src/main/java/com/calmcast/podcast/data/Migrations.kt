@@ -67,10 +67,34 @@ object Migrations {
                 "CREATE TABLE podcasts_new (id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, imageUrl TEXT, feedUrl TEXT, lastSeenEpisodeId TEXT, lastViewedAt INTEGER NOT NULL)"
             )
             database.execSQL(
-                "INSERT INTO podcasts_new (id, title, author, description, imageUrl, feedUrl, lastViewedAt) SELECT id, title, author, description, imageUrl, feedUrl, lastViewedAt FROM podcasts"
+                "INSERT INTO podcasts_new (id, title, author, description, imageUrl, feedUrl, lastSeenEpisodeId, lastViewedAt) SELECT id, title, author, description, imageUrl, feedUrl, lastSeenEpisodeId, lastViewedAt FROM podcasts"
             )
             database.execSQL("DROP TABLE podcasts")
             database.execSQL("ALTER TABLE podcasts_new RENAME TO podcasts")
+        }
+    }
+
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Recreate podcasts table without lastViewedAt column
+            // SQLite doesn't support dropping columns, so we need to recreate the table
+            database.execSQL(
+                "CREATE TABLE podcasts_new (id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, imageUrl TEXT, feedUrl TEXT, lastSeenEpisodeId TEXT)"
+            )
+            database.execSQL(
+                "INSERT INTO podcasts_new (id, title, author, description, imageUrl, feedUrl, lastSeenEpisodeId) SELECT id, title, author, description, imageUrl, feedUrl, lastSeenEpisodeId FROM podcasts"
+            )
+            database.execSQL("DROP TABLE podcasts")
+            database.execSQL("ALTER TABLE podcasts_new RENAME TO podcasts")
+        }
+    }
+
+    val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Add newEpisodeCount column to podcasts table with default value of 0
+            database.execSQL(
+                "ALTER TABLE podcasts ADD COLUMN newEpisodeCount INTEGER NOT NULL DEFAULT 0"
+            )
         }
     }
 }

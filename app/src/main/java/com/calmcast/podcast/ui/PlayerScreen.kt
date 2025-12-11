@@ -13,6 +13,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.AutoMode
+import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.SubdirectoryArrowRight
@@ -37,6 +39,7 @@ import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.ui.common.DashedDivider
 import com.calmcast.podcast.utils.DateTimeFormatter
 import com.mudita.mmd.components.buttons.ButtonMMD
+import com.mudita.mmd.components.checkbox.CheckboxMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.menus.DropdownMenuItemMMD
@@ -135,7 +138,9 @@ fun FullPlayerScreen(
     onSleepTimerMinutesChange: (Int) -> Unit = {},
     playbackSpeed: Float = 1f,
     onPlaybackSpeedClick: () -> Unit = {},
-    onPlaybackSpeedChange: (Float) -> Unit = {}
+    onPlaybackSpeedChange: (Float) -> Unit = {},
+    isAutoPlayNextEpisodeEnabled: Boolean = false,
+    onAutoPlayNextEpisodeToggle: (Boolean) -> Unit = {}
 ) {
     if (episode == null) return
     
@@ -339,13 +344,13 @@ fun FullPlayerScreen(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .padding(horizontal = 8.dp, vertical = 8.dp)
                     .fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier
+                        .padding(end = 16.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -357,7 +362,7 @@ fun FullPlayerScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
-                            imageVector = if (isKeepScreenOnEnabled) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
+                            imageVector = if (isKeepScreenOnEnabled) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
                             contentDescription = if (isKeepScreenOnEnabled) "Screen always on - click to turn off" else "Screen can turn off - click to turn on",
                             modifier = Modifier.size(24.dp)
                         )
@@ -366,47 +371,7 @@ fun FullPlayerScreen(
 
                 Column(
                     modifier = Modifier
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = { onPlaybackSpeedClick() },
-                                onLongPress = { speedMenuExpanded = true }
-                            )
-                        }
-                ) {
-                    Box {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = String.format("%.1f", playbackSpeed) + "x",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        DropdownMenuMMD(
-                            expanded = speedMenuExpanded,
-                            onDismissRequest = { speedMenuExpanded = false }
-                        ) {
-                            com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.forEach { speed ->
-                                DropdownMenuItemMMD(
-                                    text = { TextMMD(String.format("%.2f", speed) + "x") },
-                                    onClick = {
-                                        onPlaybackSpeedChange(speed)
-                                        speedMenuExpanded = false
-                                    }
-                                )
-
-                                if (speed != com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.last()) {
-                                    DashedDivider()
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
+                        .padding(end = 16.dp)
                         .pointerInput(isSleepTimerActive) {
                             detectTapGestures(
                                 onTap = {
@@ -450,6 +415,70 @@ fun FullPlayerScreen(
                                 }
                             }
                         }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .padding(end = 16.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { onPlaybackSpeedClick() },
+                                onLongPress = { speedMenuExpanded = true }
+                            )
+                        }
+                ) {
+                    Box {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = String.format("%.1f", playbackSpeed) + "x",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+
+                        DropdownMenuMMD(
+                            expanded = speedMenuExpanded,
+                            onDismissRequest = { speedMenuExpanded = false }
+                        ) {
+                            com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.forEach { speed ->
+                                DropdownMenuItemMMD(
+                                    text = { TextMMD(String.format("%.2f", speed) + "x") },
+                                    onClick = {
+                                        onPlaybackSpeedChange(speed)
+                                        speedMenuExpanded = false
+                                    }
+                                )
+
+                                if (speed != com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.last()) {
+                                    DashedDivider()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextMMD(
+                            text = "Autoplay",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        CheckboxMMD(
+                            checked = isAutoPlayNextEpisodeEnabled,
+                            onCheckedChange = onAutoPlayNextEpisodeToggle,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }

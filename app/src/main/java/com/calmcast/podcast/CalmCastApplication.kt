@@ -9,8 +9,6 @@ import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
 import com.calmcast.podcast.data.download.AndroidDownloadManager
-import com.calmcast.podcast.work.NewEpisodeWorker
-import com.calmcast.podcast.work.NewEpisodeWorkerFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,17 +22,7 @@ class CalmCastApplication : Application(), Configuration.Provider {
     lateinit var downloadManager: AndroidDownloadManager
 
     override val workManagerConfiguration: Configuration
-        get() {
-            val settingsManager = SettingsManager(this)
-            val database = PodcastDatabase.getDatabase(this)
-            val downloadDao = database.downloadDao()
-            val podcastDao = database.podcastDao()
-            val workerFactory = NewEpisodeWorkerFactory(subscriptionManager, settingsManager, downloadDao, podcastDao, downloadManager)
-
-            return Configuration.Builder()
-                .setWorkerFactory(workerFactory)
-                .build()
-        }
+        get() = Configuration.Builder().build()
 
     override fun onCreate() {
         super.onCreate()
@@ -56,18 +44,5 @@ class CalmCastApplication : Application(), Configuration.Provider {
         }
 
         AppLifecycleTracker.initialize(subscriptionManager, settingsManager, podcastDao, null)
-        setupNewEpisodeWorker()
-    }
-
-    private fun setupNewEpisodeWorker() {
-        val newEpisodeWorkRequest =
-            PeriodicWorkRequestBuilder<NewEpisodeWorker>(1, TimeUnit.DAYS)
-                .build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "new-episode-worker",
-            ExistingPeriodicWorkPolicy.KEEP,
-            newEpisodeWorkRequest
-        )
     }
 }

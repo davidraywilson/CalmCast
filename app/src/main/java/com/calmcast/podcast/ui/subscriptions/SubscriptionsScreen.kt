@@ -34,7 +34,6 @@ fun SubscriptionsScreen(
     podcasts: List<Podcast>,
     onPodcastClick: (Podcast) -> Unit,
     removeDividers: Boolean = false,
-    newEpisodeCounts: Map<String, Int> = emptyMap()
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         if (podcasts.isEmpty()) {
@@ -52,7 +51,7 @@ fun SubscriptionsScreen(
                     .fillMaxSize(),
             ) {
                 itemsIndexed(podcasts) { index, podcast ->
-                    PodcastCard(podcast = podcast, newEpisodeCount = newEpisodeCounts[podcast.id] ?: 0, onClick = { onPodcastClick(podcast) })
+                    PodcastCard(podcast = podcast, onClick = { onPodcastClick(podcast) })
 
                     if (index < podcasts.size - 1) {
                         if (!removeDividers) {
@@ -71,7 +70,6 @@ fun SubscriptionsScreen(
 @Composable
 fun PodcastCard(
     podcast: Podcast,
-    newEpisodeCount: Int = 0,
     onClick: () -> Unit
 ) {
     Column(
@@ -116,7 +114,7 @@ fun PodcastCard(
 
             Column() {
                 Row() {
-                    if (newEpisodeCount > 0) {
+                    if (podcast.newEpisodeCount > 0) {
                         Column() {
                             Box(
                                 modifier = Modifier.padding(start = 8.dp),
@@ -124,7 +122,7 @@ fun PodcastCard(
                                 BadgeMMD(
                                     content = {
                                         Text(
-                                            text = "$newEpisodeCount",
+                                            text = "$podcast.newEpisodeCount",
                                             fontSize = 12.sp,
                                         )
                                     }

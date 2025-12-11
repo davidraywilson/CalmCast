@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.core.content.edit
 
 enum class DownloadLocation(val value: String) {
     INTERNAL("internal"),
@@ -45,8 +46,12 @@ class SettingsManager(context: Context) {
     private val _playbackSpeed = MutableStateFlow(getPlaybackSpeedSync())
     val playbackSpeed = _playbackSpeed.asStateFlow()
 
+    private val _isAutoPlayNextEpisodeEnabled = MutableStateFlow(isAutoPlayNextEpisodeEnabledSync())
+    val isAutoPlayNextEpisodeEnabled = _isAutoPlayNextEpisodeEnabled.asStateFlow()
+
+
     fun setPictureInPictureEnabled(enabled: Boolean) {
-        sharedPreferences.edit().putBoolean(KEY_PIP, enabled).apply()
+        sharedPreferences.edit { putBoolean(KEY_PIP, enabled) }
         _isPictureInPictureEnabled.value = enabled
     }
 
@@ -64,7 +69,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setAutoDownloadEnabled(enabled: Boolean) {
-        sharedPreferences.edit().putBoolean(KEY_AUTO_DOWNLOAD, enabled).apply()
+        sharedPreferences.edit { putBoolean(KEY_AUTO_DOWNLOAD, enabled) }
         _autoDownloadEnabled.value = enabled
     }
 
@@ -73,7 +78,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setKeepScreenOnEnabled(enabled: Boolean) {
-        sharedPreferences.edit().putBoolean(KEY_KEEP_SCREEN_ON, enabled).apply()
+        sharedPreferences.edit { putBoolean(KEY_KEEP_SCREEN_ON, enabled) }
         _isKeepScreenOnEnabled.value = enabled
     }
 
@@ -82,7 +87,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setRemoveHorizontalDividers(enabled: Boolean) {
-        sharedPreferences.edit().putBoolean(KEY_REMOVE_DIVIDERS, enabled).apply()
+        sharedPreferences.edit { putBoolean(KEY_REMOVE_DIVIDERS, enabled) }
         _removeHorizontalDividers.value = enabled
     }
 
@@ -91,7 +96,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setSleepTimerEnabled(enabled: Boolean) {
-        sharedPreferences.edit().putBoolean(KEY_SLEEP_TIMER_ENABLED, enabled).apply()
+        sharedPreferences.edit { putBoolean(KEY_SLEEP_TIMER_ENABLED, enabled) }
         _sleepTimerEnabled.value = enabled
     }
 
@@ -100,7 +105,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setSleepTimerMinutes(minutes: Int) {
-        sharedPreferences.edit().putInt(KEY_SLEEP_TIMER_MINUTES, minutes).apply()
+        sharedPreferences.edit { putInt(KEY_SLEEP_TIMER_MINUTES, minutes) }
         _sleepTimerMinutes.value = minutes
     }
 
@@ -109,7 +114,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setSleepTimerActive(active: Boolean) {
-        sharedPreferences.edit().putBoolean(KEY_SLEEP_TIMER_ACTIVE, active).apply()
+        sharedPreferences.edit { putBoolean(KEY_SLEEP_TIMER_ACTIVE, active) }
         _isSleepTimerActive.value = active
     }
 
@@ -118,7 +123,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setDownloadLocation(location: DownloadLocation) {
-        sharedPreferences.edit().putString(KEY_DOWNLOAD_LOCATION, location.value).apply()
+        sharedPreferences.edit { putString(KEY_DOWNLOAD_LOCATION, location.value) }
         _downloadLocation.value = location
     }
 
@@ -128,7 +133,7 @@ class SettingsManager(context: Context) {
     }
 
     fun setPlaybackSpeed(speed: Float) {
-        sharedPreferences.edit().putFloat(KEY_PLAYBACK_SPEED, speed).apply()
+        sharedPreferences.edit { putFloat(KEY_PLAYBACK_SPEED, speed) }
         _playbackSpeed.value = speed
     }
 
@@ -136,43 +141,21 @@ class SettingsManager(context: Context) {
         return sharedPreferences.getFloat(KEY_PLAYBACK_SPEED, 1f)
     }
 
-    /**
-     * Set the timestamp of the last episode refresh
-     * @param timestamp Milliseconds since epoch
-     */
-    fun setLastEpisodeRefreshTime(timestamp: Long) {
-        sharedPreferences.edit().putLong(KEY_LAST_EPISODE_REFRESH, timestamp).apply()
+    fun setAutoPlayNextEpisodeEnabled(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean(KEY_AUTOPLAY_NEXT_EPISODE, enabled) }
+        _isAutoPlayNextEpisodeEnabled.value = enabled
     }
 
-    /**
-     * Get the timestamp of the last episode refresh
-     * @return Milliseconds since epoch, or 0 if never refreshed
-     */
-    fun getLastEpisodeRefreshTime(): Long {
-        return sharedPreferences.getLong(KEY_LAST_EPISODE_REFRESH, 0L)
+    fun isAutoPlayNextEpisodeEnabledSync(): Boolean {
+        return sharedPreferences.getBoolean(KEY_AUTOPLAY_NEXT_EPISODE, true)
     }
 
-    /**
-     * Check if a daily refresh is needed (if last refresh was more than 24 hours ago)
-     * @return True if refresh is needed, false otherwise
-     */
-    fun isDailyRefreshNeeded(): Boolean {
-        val lastRefreshTime = getLastEpisodeRefreshTime()
-        if (lastRefreshTime == 0L) return true // Never refreshed before
-        
-        val currentTime = System.currentTimeMillis()
-        val timeSinceLastRefresh = currentTime - lastRefreshTime
-        val twentyFourHoursInMillis = 24 * 60 * 60 * 1000L
-        
-        return timeSinceLastRefresh >= twentyFourHoursInMillis
-    }
 
     companion object {
         private const val PREFS_NAME = "calmcast_settings"
         private const val KEY_PIP = "pip_enabled"
         private const val KEY_SKIP_SECONDS = "skip_seconds"
         private const val KEY_AUTO_DOWNLOAD = "auto_download_enabled"
-        private const val KEY_LAST_EPISODE_REFRESH = "last_episode_refresh_time"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on_enabled"
         private const val KEY_REMOVE_DIVIDERS = "remove_horizontal_dividers"
         private const val KEY_SLEEP_TIMER_ENABLED = "sleep_timer_enabled"
@@ -180,6 +163,7 @@ class SettingsManager(context: Context) {
         private const val KEY_SLEEP_TIMER_ACTIVE = "sleep_timer_active"
         private const val KEY_DOWNLOAD_LOCATION = "download_location"
         private const val KEY_PLAYBACK_SPEED = "playback_speed"
+        private const val KEY_AUTOPLAY_NEXT_EPISODE = "auto_play_next_episode"
 
         val PLAYBACK_SPEEDS = listOf(0.5f, 0.75f, 1f, 1.5f, 2f, 2.5f)
         val SLEEP_TIMER_OPTIONS = listOf(5, 10, 15, 30, 45, 60)
