@@ -589,7 +589,7 @@ class PodcastViewModel(
                             var index = 0
                             val lastSeenEpisode = episodes.find { it.id == podcast.lastSeenEpisodeId }
                             if (lastSeenEpisode != null) {
-                                index = episodes.indexOf(lastSeenEpisode) + 1
+                                index = episodes.indexOf(lastSeenEpisode)
                                 podcastDao.updateNewEpisodeCount(podcast.id, index)
                             }
 
