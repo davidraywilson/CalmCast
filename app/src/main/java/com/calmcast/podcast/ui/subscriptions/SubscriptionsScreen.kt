@@ -122,7 +122,7 @@ fun PodcastCard(
                                 BadgeMMD(
                                     content = {
                                         Text(
-                                            text = "$podcast.newEpisodeCount",
+                                            text = "${podcast.newEpisodeCount}",
                                             fontSize = 12.sp,
                                         )
                                     }

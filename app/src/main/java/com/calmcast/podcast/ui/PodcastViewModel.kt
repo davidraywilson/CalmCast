@@ -579,8 +579,7 @@ class PodcastViewModel(
                 // Invalidate cache for all podcasts (app init/foreground)
                 repository.invalidateAllEpisodeCache()
                 val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
-                val newCounts = mutableMapOf<String, Int>()
-                
+
                 for (podcast in subscribedPodcasts) {
                     try {
                         val episodes = repository.getPodcastDetails(podcast.id).first().getOrNull()?.episodes
@@ -594,7 +593,6 @@ class PodcastViewModel(
                             }
 
                             if (settingsManager.isAutoDownloadEnabled() && index > 0) {
-                                // slice new episodes that are from 0 to index
                                 val newEpisodes = episodes.slice(0 until index)
 
                                 newEpisodes.forEach { episode ->
