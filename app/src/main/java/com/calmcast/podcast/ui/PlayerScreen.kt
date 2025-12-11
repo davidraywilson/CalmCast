@@ -477,7 +477,7 @@ fun FullPlayerScreen(
                         CheckboxMMD(
                             checked = isAutoPlayNextEpisodeEnabled,
                             onCheckedChange = onAutoPlayNextEpisodeToggle,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

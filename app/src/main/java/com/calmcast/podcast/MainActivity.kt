@@ -170,7 +170,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
     val viewModel: PodcastViewModel = viewModel(factory = PodcastViewModelFactory(application, podcastDao, playbackPositionDao, downloadDao, settingsManager))
 
     LaunchedEffect(Unit) {
-        val callback = {
+        val callback: (() -> Unit)? = {
             viewModel.refreshSubscribedPodcastEpisodes()
         }
         AppLifecycleTracker.setRefreshCallback(callback)

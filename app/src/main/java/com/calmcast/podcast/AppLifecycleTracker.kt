@@ -8,7 +8,6 @@ import com.calmcast.podcast.data.PodcastDao
 import com.calmcast.podcast.data.PodcastRepository
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
-import com.calmcast.podcast.data.download.AndroidDownloadManager
 import com.calmcast.podcast.api.ItunesApiService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

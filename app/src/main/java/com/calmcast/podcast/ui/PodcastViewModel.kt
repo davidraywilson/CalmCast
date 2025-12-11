@@ -374,10 +374,14 @@ class PodcastViewModel(
                 
                 val allPodcasts = podcastDao.getAllPodcasts()
                 val podcasts = allPodcasts.filter { subscriptionIds.contains(it.id) }.sortedBy { it.title }
+
                 
                 _subscriptions.value = podcasts
+
+                // we need to await the refresh of episodes before continuing
+                refreshSubscribedPodcastEpisodes().join()
+
                 _isLoading.value = false
-                refreshSubscribedPodcastEpisodes()
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading initial data", e)
                 _errorMessage.value = e.message
@@ -573,8 +577,8 @@ class PodcastViewModel(
         }
     }
 
-    fun refreshSubscribedPodcastEpisodes() {
-        viewModelScope.launch {
+    fun refreshSubscribedPodcastEpisodes(): Job {
+        return viewModelScope.launch {
             try {
                 // Invalidate cache for all podcasts (app init/foreground)
                 repository.invalidateAllEpisodeCache()
