@@ -59,6 +59,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.size
 import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.data.SettingsManager
@@ -79,6 +80,7 @@ import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.nav_bar.NavigationBarItemMMD
 import com.mudita.mmd.components.nav_bar.NavigationBarMMD
+import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
 import com.mudita.mmd.components.search_bar.SearchBarDefaultsMMD
 import com.mudita.mmd.components.snackbar.SnackbarHostMMD
 import com.mudita.mmd.components.snackbar.SnackbarHostStateMMD
@@ -171,7 +173,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
 
     LaunchedEffect(Unit) {
         val callback: (() -> Unit)? = {
-            viewModel.refreshSubscribedPodcastEpisodes()
+            viewModel.reloadData()
         }
         AppLifecycleTracker.setRefreshCallback(callback)
         onRefreshCallbackReady?.invoke(callback)
@@ -317,7 +319,13 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 }
                             },
                             actions = {
-                                viewModel.subscriptions.value
+                                if (viewModel.isLoading.value) {
+                                    CircularProgressIndicatorMMD(
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .size(20.dp)
+                                    )
+                                }
 
                                 if (viewModel.currentEpisode.value != null) {
                                     Row {
@@ -470,6 +478,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 navController.navigate("detail/${podcast.id}")
                             },
                             removeDividers = viewModel.removeHorizontalDividers.value,
+                            isLoading = viewModel.isLoading.value,
                         )
                     }
                     composable(

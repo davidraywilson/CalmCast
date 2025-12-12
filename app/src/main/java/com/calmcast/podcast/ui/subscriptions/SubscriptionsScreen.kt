@@ -29,14 +29,26 @@ import com.calmcast.podcast.ui.common.DashedDivider
 import com.mudita.mmd.components.badge.BadgeMMD
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 
+
 @Composable
 fun SubscriptionsScreen(
     podcasts: List<Podcast>,
     onPodcastClick: (Podcast) -> Unit,
     removeDividers: Boolean = false,
+    isLoading: Boolean = false,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        if (podcasts.isEmpty()) {
+        if (isLoading && podcasts.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(stringResource(R.string.loading_podcasts))
+            }
+        }
+        else if (podcasts.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()

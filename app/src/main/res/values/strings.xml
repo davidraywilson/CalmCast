@@ -11,6 +11,7 @@
     <string name="subscribed">Following</string>
     <string name="search_podcasts">Search Podcasts</string>
     <string name="no_podcasts">No podcasts yet. Go to search to find podcasts!</string>
+    <string name="loading_podcasts">Loading your podcasts. Please wait…</string>
     <string name="no_results">No results found</string>
     <string name="no_episodes">No episodes available</string>
 </resources>

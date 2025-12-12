@@ -20,13 +20,11 @@ class PodcastRepository(
     private val episodeCache = mutableMapOf<String, PodcastWithEpisodes>()
     // Track which podcasts have cache invalidation requested
     private val invalidationRequests = mutableSetOf<String>()
-    private var invalidateAllCache = false
 
     /**
      * Invalidate cache for all podcasts. Called when app is initialized or foregrounded.
      */
     fun invalidateAllEpisodeCache() {
-        invalidateAllCache = true
         episodeCache.clear()
         invalidationRequests.clear()
     }
@@ -43,7 +41,6 @@ class PodcastRepository(
      * Check if a podcast's cache is valid.
      */
     private fun isCacheValid(podcastId: String): Boolean {
-        if (invalidateAllCache) return false
         if (invalidationRequests.contains(podcastId)) return false
         return episodeCache.containsKey(podcastId)
     }
@@ -53,9 +50,6 @@ class PodcastRepository(
      */
     private fun markInvalidationProcessed(podcastId: String) {
         invalidationRequests.remove(podcastId)
-        if (invalidationRequests.isEmpty()) {
-            invalidateAllCache = false
-        }
     }
 
     fun searchPodcasts(query: String): Flow<Result<List<Podcast>>> = flow {

@@ -80,6 +80,7 @@ class PodcastViewModel(
     val searchQuery: State<String> = _searchQuery
 
     private val _isLoading = mutableStateOf(false)
+    val isLoading: State<Boolean> = _isLoading
 
     private val _errorMessage = mutableStateOf<String?>(null)
 
@@ -370,17 +371,8 @@ class PodcastViewModel(
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                val subscriptionIds = subscriptionManager.getSubscribedPodcastIds()
-                
-                val allPodcasts = podcastDao.getAllPodcasts()
-                val podcasts = allPodcasts.filter { subscriptionIds.contains(it.id) }.sortedBy { it.title }
-
-                
-                _subscriptions.value = podcasts
-
-                // we need to await the refresh of episodes before continuing
-                refreshSubscribedPodcastEpisodes().join()
-
+                val podcasts = refreshSubscribedPodcastEpisodes()
+                _subscriptions.value = podcasts.sortedBy { it.title }
                 _isLoading.value = false
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading initial data", e)
@@ -577,48 +569,52 @@ class PodcastViewModel(
         }
     }
 
-    fun refreshSubscribedPodcastEpisodes(): Job {
-        return viewModelScope.launch {
-            try {
-                // Invalidate cache for all podcasts (app init/foreground)
-                repository.invalidateAllEpisodeCache()
-                val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: return@launch
+    fun reloadData() {
+        loadInitialData()
+    }
 
-                for (podcast in subscribedPodcasts) {
-                    try {
-                        val episodes = repository.getPodcastDetails(podcast.id).first().getOrNull()?.episodes
+    private suspend fun refreshSubscribedPodcastEpisodes(): List<Podcast> {
+        return try {
+            // Invalidate cache for all podcasts (app init/foreground)
+            repository.invalidateAllEpisodeCache()
+            val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: emptyList()
 
-                        if (episodes != null) {
-                            var index = 0
-                            val lastSeenEpisode = episodes.find { it.id == podcast.lastSeenEpisodeId }
-                            if (lastSeenEpisode != null) {
-                                index = episodes.indexOf(lastSeenEpisode)
-                                podcastDao.updateNewEpisodeCount(podcast.id, index)
-                            }
+            for (podcast in subscribedPodcasts) {
+                try {
+                    val episodes = repository.getPodcastDetails(podcast.id).first().getOrNull()?.episodes
 
-                            if (settingsManager.isAutoDownloadEnabled() && index > 0) {
-                                val newEpisodes = episodes.slice(0 until index)
+                    if (episodes != null) {
+                        var index = 0
+                        val lastSeenEpisode = episodes.find { it.id == podcast.lastSeenEpisodeId }
+                        if (lastSeenEpisode != null) {
+                            index = episodes.indexOf(lastSeenEpisode)
+                            podcastDao.updateNewEpisodeCount(podcast.id, index)
+                        }
 
-                                newEpisodes.forEach { episode ->
-                                    val existingDownload = _downloads.value.find { it.episode.id == episode.id }
-                                    // Only auto-download if:
-                                    // 1. No record exists (never attempted)
-                                    // 2. Status is not DELETED (user didn't explicitly delete it)
-                                    if (existingDownload == null || existingDownload.status.name != "DELETED") {
-                                        if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
-                                            downloadManager.startDownload(episode)
-                                        }
+                        if (settingsManager.isAutoDownloadEnabled() && index > 0) {
+                            val newEpisodes = episodes.slice(0 until index)
+
+                            newEpisodes.forEach { episode ->
+                                val existingDownload = _downloads.value.find { it.episode.id == episode.id }
+                                // Only auto-download if:
+                                // 1. No record exists (never attempted)
+                                // 2. Status is not DELETED (user didn't explicitly delete it)
+                                if (existingDownload == null || existingDownload.status.name != "DELETED") {
+                                    if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
+                                        downloadManager.startDownload(episode)
                                     }
                                 }
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing all podcast episodes", e)
             }
+            subscribedPodcasts
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing all podcast episodes", e)
+            emptyList()
         }
     }
 
