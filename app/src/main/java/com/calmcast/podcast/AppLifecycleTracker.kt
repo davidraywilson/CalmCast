@@ -73,29 +73,8 @@ object AppLifecycleTracker {
         subscriptionManager: SubscriptionManager,
         podcastDao: PodcastDao
     ) {
-        try {
-            val repository = PodcastRepository(
-                (apiServiceProvider?.invoke() ?: ItunesApiService()),
-                subscriptionManager,
-                podcastDao,
-                null
-            )
-            val subscriptions = subscriptionManager.getSubscriptions()
-
-            for (podcast in subscriptions) {
-                try {
-                    try {
-                        repository.getPodcastDetails(podcast.id, forceRefresh = true).first()
-                    } catch (e: Exception) {
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
-                }
-            }
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in refreshAllPodcastEpisodesDirectly", e)
-        }
+        // Refresh is now handled through PodcastViewModel.refreshSubscribedPodcastEpisodes()
+        // This method is kept for backward compatibility but does nothing
     }
 
 }

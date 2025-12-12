@@ -444,20 +444,6 @@ class PodcastViewModel(
                     val updatedList = (_subscriptions.value + podcast).sortedBy { it.title }
                     _subscriptions.value = updatedList
                 }
-                // Fetch full metadata from API after successful subscription
-                if (podcast.feedUrl != null) {
-                    try {
-                        repository.getPodcastDetails(podcast.id).first().getOrNull()?.let { podcastDetails ->
-                            // Update the podcast in subscriptions with fetched metadata
-                            val updatedPodcast = podcastDetails.podcast
-                            _subscriptions.value = _subscriptions.value.map { p ->
-                                if (p.id == podcast.id) updatedPodcast else p
-                            }.sortedBy { it.title }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error fetching metadata for new subscription", e)
-                    }
-                }
             }.onFailure { _errorMessage.value = it.message }
         }
     }
@@ -483,18 +469,6 @@ class PodcastViewModel(
                     if (!_subscriptions.value.any { it.id == podcast.id }) {
                         val updatedList = (_subscriptions.value + podcast).sortedBy { it.title }
                         _subscriptions.value = updatedList
-                    }
-                    // Fetch full metadata from API after successful subscription
-                    try {
-                        repository.getPodcastDetails(podcast.id).first().getOrNull()?.let { podcastDetails ->
-                            // Update the podcast in subscriptions with fetched metadata
-                            val updatedPodcast = podcastDetails.podcast
-                            _subscriptions.value = _subscriptions.value.map { p ->
-                                if (p.id == podcast.id) updatedPodcast else p
-                            }.sortedBy { it.title }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error fetching metadata for RSS subscription", e)
                     }
                 }.onFailure {
                     _errorMessage.value = it.message
