@@ -82,8 +82,7 @@ class PodcastRepository(
         val episodes: List<Episode>
     )
 
-    // Unified entrypoint: always fetches fresh episodes from API
-    fun getPodcastDetails(podcastId: String, forceRefresh: Boolean = false): Flow<Result<PodcastWithEpisodes?>> =
+    fun getPodcastDetails(podcastId: String): Flow<Result<PodcastWithEpisodes?>> =
         fetchAndUpdateEpisodes(podcastId = podcastId)
 
     fun getSubscribedPodcasts(): Flow<Result<List<Podcast>>> = flow<Result<List<Podcast>>> {

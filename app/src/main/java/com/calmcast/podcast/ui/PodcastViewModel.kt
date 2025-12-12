@@ -598,7 +598,7 @@ class PodcastViewModel(
         return try {
             // Invalidate cache for all podcasts (app init/foreground)
             repository.invalidateAllEpisodeCache()
-            val subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: emptyList()
+            var subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: emptyList()
 
             for (podcast in subscribedPodcasts) {
                 try {
@@ -641,6 +641,8 @@ class PodcastViewModel(
                     Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                 }
             }
+            // After updating newEpisodeCount in database, refetch podcasts to get fresh data
+            subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: emptyList()
             subscribedPodcasts
         } catch (e: Exception) {
             Log.e(TAG, "Error refreshing all podcast episodes", e)
