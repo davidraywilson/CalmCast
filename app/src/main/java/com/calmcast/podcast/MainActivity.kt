@@ -657,6 +657,10 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             isAutoPlayNextEpisodeEnabled = viewModel.isAutoPlayNextEpisodeEnabled.value,
                             onAutoPlayNextEpisodeToggle = { enabled ->
                                 viewModel.setAutoPlayEpisodeEnabled(enabled)
+                            },
+                            isWiFiOnlyDownloadsEnabled = viewModel.isWiFiOnlyDownloadsEnabled.value,
+                            onWiFiOnlyDownloadsToggle = { enabled ->
+                                viewModel.setWiFiOnlyDownloadsEnabled(enabled)
                             }
                         )
                     }

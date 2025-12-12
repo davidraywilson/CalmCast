@@ -49,6 +49,9 @@ class SettingsManager(context: Context) {
     private val _isAutoPlayNextEpisodeEnabled = MutableStateFlow(isAutoPlayNextEpisodeEnabledSync())
     val isAutoPlayNextEpisodeEnabled = _isAutoPlayNextEpisodeEnabled.asStateFlow()
 
+    private val _isWiFiOnlyDownloadsEnabled = MutableStateFlow(isWiFiOnlyDownloadsEnabledSync())
+    val isWiFiOnlyDownloadsEnabled = _isWiFiOnlyDownloadsEnabled.asStateFlow()
+
 
     fun setPictureInPictureEnabled(enabled: Boolean) {
         sharedPreferences.edit { putBoolean(KEY_PIP, enabled) }
@@ -150,6 +153,15 @@ class SettingsManager(context: Context) {
         return sharedPreferences.getBoolean(KEY_AUTOPLAY_NEXT_EPISODE, true)
     }
 
+    fun setWiFiOnlyDownloadsEnabled(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean(KEY_WIFI_ONLY_DOWNLOADS, enabled) }
+        _isWiFiOnlyDownloadsEnabled.value = enabled
+    }
+
+    fun isWiFiOnlyDownloadsEnabledSync(): Boolean {
+        return sharedPreferences.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
+    }
+
 
     companion object {
         private const val PREFS_NAME = "calmcast_settings"
@@ -164,6 +176,7 @@ class SettingsManager(context: Context) {
         private const val KEY_DOWNLOAD_LOCATION = "download_location"
         private const val KEY_PLAYBACK_SPEED = "playback_speed"
         private const val KEY_AUTOPLAY_NEXT_EPISODE = "auto_play_next_episode"
+        private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
 
         val PLAYBACK_SPEEDS = listOf(0.5f, 0.75f, 1f, 1.5f, 2f, 2.5f)
         val SLEEP_TIMER_OPTIONS = listOf(5, 10, 15, 30, 45, 60)

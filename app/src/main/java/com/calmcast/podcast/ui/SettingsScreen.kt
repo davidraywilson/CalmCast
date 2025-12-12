@@ -1,6 +1,7 @@
 package com.calmcast.podcast.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,7 +57,9 @@ fun SettingsScreen(
     playbackSpeed: Float = 1f,
     onPlaybackSpeedChange: (Float) -> Unit = {},
     isAutoPlayNextEpisodeEnabled: Boolean = false,
-    onAutoPlayNextEpisodeToggle: (Boolean) -> Unit = {}
+    onAutoPlayNextEpisodeToggle: (Boolean) -> Unit = {},
+    isWiFiOnlyDownloadsEnabled: Boolean,
+    onWiFiOnlyDownloadsToggle: (Boolean) -> Unit = {}
 ) {
     val skipOptions = listOf(5, 10, 15, 30)
     val sleepTimerOptions = listOf(5, 10, 15, 30, 45, 60)
@@ -275,6 +278,33 @@ fun SettingsScreen(
                                 modifier = Modifier.padding(start = 16.dp),
                                 thickness = 1.dp
                             )
+                        }
+
+                        if (isAutoDownloadEnabled) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 40.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextMMD(
+                                    text = "Wi-Fi Only",
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                SwitchMMD(
+                                    checked = isWiFiOnlyDownloadsEnabled,
+                                    onCheckedChange = onWiFiOnlyDownloadsToggle
+                                )
+                            }
+
+                            if (!removeHorizontalDividers) {
+                                DashedDivider(
+                                    modifier = Modifier.padding(start = 40.dp),
+                                    thickness = 1.dp
+                                )
+                            }
                         }
                     }
                     item {

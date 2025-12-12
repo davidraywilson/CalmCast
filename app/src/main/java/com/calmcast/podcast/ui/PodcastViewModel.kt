@@ -182,6 +182,10 @@ class PodcastViewModel(
     private val _isAutoPlayNextEpisodeEnabled = mutableStateOf(false)
     val isAutoPlayNextEpisodeEnabled: State<Boolean> = _isAutoPlayNextEpisodeEnabled
 
+    private val _isWiFiOnlyDownloadsEnabled = mutableStateOf(false)
+    val isWiFiOnlyDownloadsEnabled: State<Boolean> = _isWiFiOnlyDownloadsEnabled
+
+
     private var searchJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var lastSaveTime: Long = 0L
@@ -242,6 +246,7 @@ class PodcastViewModel(
         _downloadLocation.value = settingsManager.getDownloadLocationSync()
         _playbackSpeed.value = settingsManager.getPlaybackSpeedSync()
         _isExternalStorageAvailable.value = StorageManager.isExternalStorageAvailable(application)
+        _isWiFiOnlyDownloadsEnabled.value = settingsManager.isWiFiOnlyDownloadsEnabledSync()
 
         viewModelScope.launch {
             settingsManager.isPictureInPictureEnabled.collect {
@@ -298,6 +303,11 @@ class PodcastViewModel(
         viewModelScope.launch {
             settingsManager.isAutoPlayNextEpisodeEnabled.collect {
                 _isAutoPlayNextEpisodeEnabled.value = it
+            }
+        }
+        viewModelScope.launch {
+            settingsManager.isWiFiOnlyDownloadsEnabled.collect {
+                _isWiFiOnlyDownloadsEnabled.value = it
             }
         }
     }
@@ -603,16 +613,25 @@ class PodcastViewModel(
                         }
 
                         if (settingsManager.isAutoDownloadEnabled() && index > 0) {
-                            val newEpisodes = episodes.slice(0 until index)
+                            // Check WiFi requirement if enabled
+                            val shouldDownload = if (settingsManager.isWiFiOnlyDownloadsEnabledSync()) {
+                                com.calmcast.podcast.util.NetworkUtil.isConnectedToWiFi(application)
+                            } else {
+                                true
+                            }
 
-                            newEpisodes.forEach { episode ->
-                                val existingDownload = _downloads.value.find { it.episode.id == episode.id }
-                                // Only auto-download if:
-                                // 1. No record exists (never attempted)
-                                // 2. Status is not DELETED (user didn't explicitly delete it)
-                                if (existingDownload == null || existingDownload.status.name != "DELETED") {
-                                    if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
-                                        downloadManager.startDownload(episode)
+                            if (shouldDownload) {
+                                val newEpisodes = episodes.slice(0 until index)
+
+                                newEpisodes.forEach { episode ->
+                                    val existingDownload = _downloads.value.find { it.episode.id == episode.id }
+                                    // Only auto-download if:
+                                    // 1. No record exists (never attempted)
+                                    // 2. Status is not DELETED (user didn't explicitly delete it)
+                                    if (existingDownload == null || existingDownload.status.name != "DELETED") {
+                                        if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
+                                            downloadManager.startDownload(episode)
+                                        }
                                     }
                                 }
                             }
@@ -860,6 +879,9 @@ class PodcastViewModel(
         settingsManager.setAutoPlayNextEpisodeEnabled(enabled)
     }
 
+    fun setWiFiOnlyDownloadsEnabled(enabled: Boolean) {
+        settingsManager.setWiFiOnlyDownloadsEnabled(enabled)
+    }
 
 
     private fun registerPlaybackServiceErrorCallback() {
