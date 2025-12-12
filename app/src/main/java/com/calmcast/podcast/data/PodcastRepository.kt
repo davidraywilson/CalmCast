@@ -235,12 +235,4 @@ class PodcastRepository(
                 emit(Result.failure<PodcastWithEpisodes?>(e))
             }
             .flowOn(Dispatchers.IO)
-
-    suspend fun updateNewEpisodeCount(podcastId: String, episodes: List<Episode>): Int {
-        val podcast = podcastDao.getPodcast(podcastId) ?: return 0
-        if (podcast.lastSeenEpisodeId == null) return episodes.size
-
-        val lastSeenIndex = episodes.indexOfFirst { it.id == podcast.lastSeenEpisodeId }
-        return if (lastSeenIndex == -1) episodes.size else lastSeenIndex
-    }
 }

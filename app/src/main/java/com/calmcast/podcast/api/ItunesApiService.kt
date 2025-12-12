@@ -8,30 +8,33 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
+import okhttp3.Response
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.StringReader
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
-class ItunesApiService {
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(Interceptor { chain ->
-            val originalRequest = chain.request()
-            val requestWithUserAgent = originalRequest.newBuilder()
-                .header("User-Agent", "CalmCast/1.0 (Android; Podcast Player)")
-                .build()
-            chain.proceed(requestWithUserAgent)
-        })
-        .addInterceptor(HttpLoggingInterceptor { message ->
-            Log.d("OkHttp", message)
-        }.apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        })
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+class ItunesApiService(private val client: OkHttpClient = defaultClient()) {
+
+    companion object {
+        private fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                val originalRequest = chain.request()
+                val requestWithUserAgent = originalRequest.newBuilder()
+                    .header("User-Agent", "CalmCast/1.0 (Android; Podcast Player)")
+                    .build()
+                chain.proceed(requestWithUserAgent)
+            })
+            .addInterceptor(HttpLoggingInterceptor { message ->
+            }.apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     private val ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
 
@@ -112,7 +115,6 @@ class ItunesApiService {
                     .build()
 
                 val response = client.newCall(request).execute()
-
                 if (!response.isSuccessful) {
                     Log.e("ItunesApi", "Failed to fetch RSS: ${response.code} ${response.message}")
                     when (response.code) {

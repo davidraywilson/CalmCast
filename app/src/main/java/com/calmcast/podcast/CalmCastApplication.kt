@@ -13,6 +13,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import okhttp3.Cache
+import okhttp3.Interceptor
+import okhttp3.logging.HttpLoggingInterceptor
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class CalmCastApplication : Application(), Configuration.Provider {
@@ -39,10 +43,38 @@ class CalmCastApplication : Application(), Configuration.Provider {
         subscriptionManager = SubscriptionManager(this, podcastDao)
         downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, podcastDao, settingsManager)
 
+        // Build a cached OkHttpClient for RSS/ItunesApiService
+        val rssCacheDir = File(cacheDir, "http_rss_cache")
+        if (!rssCacheDir.exists()) rssCacheDir.mkdirs()
+        val rssCache = Cache(rssCacheDir, 50L * 1024 * 1024)
+        val rssClient = OkHttpClient.Builder()
+            .cache(rssCache)
+            .addInterceptor(Interceptor { chain ->
+                val req = chain.request().newBuilder()
+                    .header("User-Agent", "CalmCast/1.0 (Android; Podcast Player)")
+                    .build()
+                chain.proceed(req)
+            })
+            .addInterceptor(HttpLoggingInterceptor { message ->
+                android.util.Log.d("OkHttp", message)
+            }.apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+
         CoroutineScope(Dispatchers.IO).launch {
             downloadDao.deleteInvalidDownloads()
         }
 
-        AppLifecycleTracker.initialize(subscriptionManager, settingsManager, podcastDao, null)
+        AppLifecycleTracker.initialize(
+            subscriptionManager,
+            settingsManager,
+            podcastDao,
+            null,
+            apiProvider = { com.calmcast.podcast.api.ItunesApiService(rssClient) }
+        )
     }
 }

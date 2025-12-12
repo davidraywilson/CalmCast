@@ -47,6 +47,12 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import okhttp3.Cache
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import java.io.File
+import java.util.concurrent.TimeUnit
 
 class PodcastViewModel(
     private val application: Application,
@@ -64,7 +70,7 @@ class PodcastViewModel(
 
     private val subscriptionManager = SubscriptionManager(application, podcastDao)
     private val repository = PodcastRepository(
-        com.calmcast.podcast.api.ItunesApiService(),
+        com.calmcast.podcast.api.ItunesApiService(createCachedHttpClient()),
         subscriptionManager,
         podcastDao,
         playbackPositionDao
@@ -180,6 +186,30 @@ class PodcastViewModel(
     private var sleepTimerJob: Job? = null
     private var lastSaveTime: Long = 0L
     private val SAVE_INTERVAL_MS = 10000L // 10 seconds
+
+    private fun createCachedHttpClient(): OkHttpClient {
+        val cacheDir = File(application.cacheDir, "http_rss_cache")
+        if (!cacheDir.exists()) cacheDir.mkdirs()
+        val cache = Cache(cacheDir, 50L * 1024 * 1024) // 50MB
+
+        return OkHttpClient.Builder()
+            .cache(cache)
+            .addInterceptor(Interceptor { chain ->
+                val requestWithUserAgent = chain.request().newBuilder()
+                    .header("User-Agent", "CalmCast/1.0 (Android; Podcast Player)")
+                    .build()
+                chain.proceed(requestWithUserAgent)
+            })
+            .addInterceptor(HttpLoggingInterceptor { message ->
+
+            }.apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     init {
         cleanupInvalidDownloads()
