@@ -12,7 +12,7 @@ interface PodcastDao {
     suspend fun insertPodcast(podcast: Podcast)
 
     @Query("SELECT * FROM podcasts WHERE id = :podcastId")
-    suspend fun getPodcast(podcastId: String): Podcast?
+    suspend fun getPodcast(podcastId: String): Podcast
 
     @Query("UPDATE podcasts SET lastSeenEpisodeId = :episodeId WHERE id = :podcastId")
     suspend fun updateLastSeenEpisodeId(podcastId: String, episodeId: String)

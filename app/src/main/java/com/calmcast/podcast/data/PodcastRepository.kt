@@ -203,19 +203,11 @@ class PodcastRepository(
                         )
                     }
 
-                    val mostRecentEpisodeId = episodes.maxByOrNull { it.publishDateMillis }?.id
-                    val updatedPodcast = if (mostRecentEpisodeId != null && mostRecentEpisodeId != podcast.lastSeenEpisodeId) {
-                        podcastDao.updateLastSeenEpisodeId(podcast.id, mostRecentEpisodeId)
-                        podcast.copy(
-                            lastSeenEpisodeId = mostRecentEpisodeId,
-                            description = if (response.description.isNotEmpty()) response.description else podcast.description
-                        )
-                    } else {
+                    val updatedPodcast =
                         podcast.copy(
                             description = if (response.description.isNotEmpty()) response.description else podcast.description
                         )
-                    }
-                    
+
                     podcastDao.insertPodcast(updatedPodcast)
 
                     val episodesSorted = episodes.sortedByDescending { it.publishDateMillis }

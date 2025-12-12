@@ -509,54 +509,61 @@ class PodcastViewModel(
                 }
             }
 
-            podcast = podcastDao.getPodcast(podcastId) ?: podcast
+            _currentPodcastDetails.value = PodcastWithEpisodes(podcast, emptyList())
+            _metadataLoading.value = false
 
-            if (podcast != null) {
-                _currentPodcastDetails.value = PodcastWithEpisodes(podcast, emptyList())
-                _metadataLoading.value = false
+            try {
+                repository.getPodcastDetails(podcastId).collect { result ->
+                    result.onSuccess { podcastWithEpisodes ->
+                        if (podcastWithEpisodes != null) {
+                            _currentPodcastDetails.value = podcastWithEpisodes
 
-                try {
-                    repository.getPodcastDetails(podcastId).collect { result ->
-                        result.onSuccess { podcastWithEpisodes ->
-                            if (podcastWithEpisodes != null) {
-                                _currentPodcastDetails.value = podcastWithEpisodes
+                            val episodeIds = podcastWithEpisodes.episodes.map { it.id }
+                            val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
+                            _playbackPositions.value =
+                                _playbackPositions.value + positions.associateBy { it.episodeId }
 
-                                val episodeIds = podcastWithEpisodes.episodes.map { it.id }
-                                val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
-                                _playbackPositions.value =
-                                    _playbackPositions.value + positions.associateBy { it.episodeId }
+                            if (podcastWithEpisodes.episodes.isNotEmpty()) {
+                                podcastDao.updateLastSeenEpisodeId(
+                                    podcast.id,
+                                    podcastWithEpisodes.episodes[0].id
+                                )
+                            }
 
-                                if (podcastWithEpisodes.episodes.isNotEmpty()) {
-                                    podcastDao.updateLastSeenEpisodeId(
-                                        podcast.id,
-                                        podcastWithEpisodes.episodes[0].id
-                                    )
-                                }
+                            if (podcast.newEpisodeCount > 0) {
                                 podcastDao.updateNewEpisodeCount(podcast.id, 0)
-                            }
-                            _episodesLoading.value = false
-                        }.onFailure { exception ->
-                            Log.e(TAG, "Error fetching episodes", exception)
-                            when (exception) {
-                                is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
-                                is FeedGoneException -> {
-                                    // Check if it's a 403 error
-                                    val errorCode = if (exception.message?.contains("403") == true) 403 else 410
-                                    val message = exception.message ?: "Podcast feed unavailable"
-                                    _detailError.value = errorCode to message
+
+                                val index = _subscriptions.value.indexOf(podcast)
+                                if (index != -1) {
+                                    // get updated podcast from database
+                                    val updatedPod = podcastDao.getPodcast(podcast.id)
+
+                                    _subscriptions.value =
+                                        _subscriptions.value.toMutableList().apply {
+                                            set(index, updatedPod)
+                                        }
                                 }
-                                else -> _errorMessage.value = exception.message
                             }
-                            _episodesLoading.value = false
                         }
+                        _episodesLoading.value = false
+                    }.onFailure { exception ->
+                        Log.e(TAG, "Error fetching episodes", exception)
+                        when (exception) {
+                            is FeedNotFoundException -> _detailError.value = 404 to "Podcast feed not found"
+                            is FeedGoneException -> {
+                                // Check if it's a 403 error
+                                val errorCode = if (exception.message?.contains("403") == true) 403 else 410
+                                val message = exception.message ?: "Podcast feed unavailable"
+                                _detailError.value = errorCode to message
+                            }
+                            else -> _errorMessage.value = exception.message
+                        }
+                        _episodesLoading.value = false
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Exception in fetchPodcastDetails", e)
-                    _errorMessage.value = e.message
-                    _episodesLoading.value = false
                 }
-            } else {
-                _metadataLoading.value = false
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception in fetchPodcastDetails", e)
+                _errorMessage.value = e.message
                 _episodesLoading.value = false
             }
         }
