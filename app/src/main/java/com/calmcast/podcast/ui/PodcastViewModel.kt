@@ -487,7 +487,6 @@ class PodcastViewModel(
         _episodesLoading.value = true
         _detailError.value = null
         viewModelScope.launch {
-
             var podcast = podcastDao.getPodcast(podcastId)
 
             if (podcast == null) {
@@ -511,11 +510,19 @@ class PodcastViewModel(
                         result.onSuccess { podcastWithEpisodes ->
                             if (podcastWithEpisodes != null) {
                                 _currentPodcastDetails.value = podcastWithEpisodes
-                                
+
                                 val episodeIds = podcastWithEpisodes.episodes.map { it.id }
                                 val positions = playbackPositionDao.getPlaybackPositions(episodeIds)
                                 _playbackPositions.value =
                                     _playbackPositions.value + positions.associateBy { it.episodeId }
+
+                                if (podcastWithEpisodes.episodes.isNotEmpty()) {
+                                    podcastDao.updateLastSeenEpisodeId(
+                                        podcast.id,
+                                        podcastWithEpisodes.episodes[0].id
+                                    )
+                                }
+                                podcastDao.updateNewEpisodeCount(podcast.id, 0)
                             }
                             _episodesLoading.value = false
                         }.onFailure { exception ->
