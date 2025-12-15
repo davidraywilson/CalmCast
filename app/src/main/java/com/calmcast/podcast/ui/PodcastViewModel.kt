@@ -41,6 +41,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -185,6 +186,8 @@ class PodcastViewModel(
     private val _isWiFiOnlyDownloadsEnabled = mutableStateOf(false)
     val isWiFiOnlyDownloadsEnabled: State<Boolean> = _isWiFiOnlyDownloadsEnabled
 
+    private val _isFetchingLatestEpisodes = mutableStateOf(false)
+    val isFetchingLatestEpisodes: State<Boolean> = _isFetchingLatestEpisodes
 
     private var searchJob: Job? = null
     private var sleepTimerJob: Job? = null
@@ -411,13 +414,20 @@ class PodcastViewModel(
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                val podcasts = refreshSubscribedPodcastEpisodes()
-                _subscriptions.value = podcasts.sortedBy { it.title }
+                // Load from database immediately
+                val cachedPodcasts = subscriptionManager.getSubscriptions()
+                _subscriptions.value = cachedPodcasts.sortedBy { it.title }
                 _isLoading.value = false
+                
+                // Run refresh in background
+                _isFetchingLatestEpisodes.value = true
+                val refreshedPodcasts = refreshSubscribedPodcastEpisodes()
+                _subscriptions.value = refreshedPodcasts.sortedBy { it.title }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading initial data", e)
                 _errorMessage.value = e.message
-                _isLoading.value = false
+            } finally {
+                _isFetchingLatestEpisodes.value = false
             }
         }
     }
@@ -607,46 +617,51 @@ class PodcastViewModel(
             repository.invalidateAllEpisodeCache()
             var subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: emptyList()
 
-            for (podcast in subscribedPodcasts) {
-                try {
-                    val episodes = repository.getPodcastDetails(podcast.id).first().getOrNull()?.episodes
+            // Fetch all podcast details concurrently
+            coroutineScope {
+                subscribedPodcasts.map { podcast ->
+                    async {
+                        try {
+                            val episodes = repository.getPodcastDetails(podcast.id).first().getOrNull()?.episodes
 
-                    if (episodes != null) {
-                        var index = 0
-                        val lastSeenEpisode = episodes.find { it.id == podcast.lastSeenEpisodeId }
-                        if (lastSeenEpisode != null) {
-                            index = episodes.indexOf(lastSeenEpisode)
-                            podcastDao.updateNewEpisodeCount(podcast.id, index)
-                        }
+                            episodes?.let {
+                                var index = 0
+                                val lastSeenEpisode = it.find { ep -> ep.id == podcast.lastSeenEpisodeId }
+                                if (lastSeenEpisode != null) {
+                                    index = it.indexOf(lastSeenEpisode)
+                                    podcastDao.updateNewEpisodeCount(podcast.id, index)
+                                }
 
-                        if (settingsManager.isAutoDownloadEnabled() && index > 0) {
-                            // Check WiFi requirement if enabled
-                            val shouldDownload = if (settingsManager.isWiFiOnlyDownloadsEnabledSync()) {
-                                com.calmcast.podcast.util.NetworkUtil.isConnectedToWiFi(application)
-                            } else {
-                                true
-                            }
+                                if (settingsManager.isAutoDownloadEnabled() && index > 0) {
+                                    // Check WiFi requirement if enabled
+                                    val shouldDownload = if (settingsManager.isWiFiOnlyDownloadsEnabledSync()) {
+                                        com.calmcast.podcast.util.NetworkUtil.isConnectedToWiFi(application)
+                                    } else {
+                                        true
+                                    }
 
-                            if (shouldDownload) {
-                                val newEpisodes = episodes.slice(0 until index)
+                                    if (shouldDownload) {
+                                        val newEpisodes = it.slice(0 until index)
 
-                                newEpisodes.forEach { episode ->
-                                    val existingDownload = _downloads.value.find { it.episode.id == episode.id }
-                                    // Only auto-download if:
-                                    // 1. No record exists (never attempted)
-                                    // 2. Status is not DELETED (user didn't explicitly delete it)
-                                    if (existingDownload == null || existingDownload.status.name != "DELETED") {
-                                        if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
-                                            downloadManager.startDownload(episode)
+                                        newEpisodes.forEach { episode ->
+                                            val existingDownload = _downloads.value.find { dl -> dl.episode.id == episode.id }
+                                            // Only auto-download if:
+                                            // 1. No record exists (never attempted)
+                                            // 2. Status is not DELETED (user didn't explicitly delete it)
+                                            if (existingDownload == null || existingDownload.status.name != "DELETED") {
+                                                if (existingDownload?.status?.name !in listOf("DOWNLOADING", "DOWNLOADED", "PAUSED")) {
+                                                    downloadManager.startDownload(episode)
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
                         }
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Exception refreshing episodes for ${podcast.title}", e)
-                }
+                }.awaitAll()
             }
             // After updating newEpisodeCount in database, refetch podcasts to get fresh data
             subscribedPodcasts = repository.getSubscribedPodcasts().first().getOrNull() ?: emptyList()

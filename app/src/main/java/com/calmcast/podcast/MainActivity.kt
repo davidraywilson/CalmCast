@@ -59,6 +59,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.PodcastRepository.Episode
@@ -227,6 +229,18 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
             }
     }
 
+    LaunchedEffect(Unit) {
+        snapshotFlow { viewModel.isFetchingLatestEpisodes.value }
+            .collect { isFetching ->
+                if (isFetching) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Fetching latest episodes")
+                    }
+                }
+            }
+    }
+
+
     if (isInPiP.value && viewModel.currentEpisode.value != null) {
         PictureInPictureContent(
             podcast = viewModel.currentPodcastDetails.value?.podcast,
@@ -258,7 +272,15 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
 
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
-                snackbarHost = { SnackbarHostMMD(hostState = snackbarHostState) },
+                snackbarHost = { 
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                    ) {
+                        SnackbarHostMMD(hostState = snackbarHostState)
+                    }
+                },
                 topBar = {
                     Column {
                         TopAppBarMMD(
@@ -319,7 +341,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 }
                             },
                             actions = {
-                                if (viewModel.isLoading.value) {
+                                if (viewModel.isLoading.value || viewModel.isFetchingLatestEpisodes.value) {
                                     CircularProgressIndicatorMMD(
                                         modifier = Modifier
                                             .padding(end = 8.dp)
