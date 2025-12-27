@@ -605,7 +605,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                         popEnterTransition = { EnterTransition.None },
                         popExitTransition = { ExitTransition.None }
                     ) {
-                        val downloads = viewModel.downloads.value.sortedByDescending { (it.episode.publishDate?.toLongOrNull() ?: 0L) }
+                        val downloads = viewModel.downloads.value.sortedByDescending { it.episode.publishDateMillis }
                         val playbackPositions = viewModel.playbackPositions.value
                         DownloadsScreen(
                             downloads = downloads,
