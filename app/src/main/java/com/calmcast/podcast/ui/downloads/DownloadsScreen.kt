@@ -49,7 +49,7 @@ fun DownloadsScreen(
                     hasError.value = true
                     false
                 }
-            }
+            }.sortedByDescending { it.episode.publishDateMillis }
         } catch (e: Exception) {
             hasError.value = true
             emptyList()

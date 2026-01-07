@@ -135,7 +135,8 @@ fun PodcastCard(
                                     content = {
                                         Text(
                                             text = "${podcast.newEpisodeCount}",
-                                            fontSize = 12.sp,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
                                 )

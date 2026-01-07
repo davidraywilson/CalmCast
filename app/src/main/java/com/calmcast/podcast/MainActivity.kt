@@ -42,7 +42,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
@@ -441,7 +440,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             },
                             showDivider = false
                         )
-                        HorizontalDividerMMD(thickness = 3.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                        HorizontalDividerMMD(thickness = 3.dp)
                     }
                 },
                 bottomBar = {
@@ -455,7 +454,6 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                         Icon(
                                             painter = rememberVectorPainter(image = screen.icon),
                                             contentDescription = screen.label,
-                                            tint = Color.Unspecified
                                         )
                                     },
                                     label = {
@@ -605,7 +603,8 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                         popEnterTransition = { EnterTransition.None },
                         popExitTransition = { ExitTransition.None }
                     ) {
-                        val downloads = viewModel.downloads.value.sortedByDescending { (it.episode.publishDate?.toLongOrNull() ?: 0L) }
+                        val downloads = viewModel.downloads.value.sortedByDescending { (it.episode.publishDate.toLongOrNull()
+                            ?: 0L) }
                         val playbackPositions = viewModel.playbackPositions.value
                         DownloadsScreen(
                             downloads = downloads,

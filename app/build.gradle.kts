@@ -41,9 +41,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        // Inject environment variables into BuildConfig
-        buildConfigField("String", "TADDY_API_KEY", "\"${envVars["TADDY_API_KEY"] ?: ""}\"")
     }
 
     buildTypes {

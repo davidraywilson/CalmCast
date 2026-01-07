@@ -689,7 +689,8 @@ class PodcastViewModel(
 
             var details = currentPodcastDetails.value
             if (details == null || details.podcast.id != episode.podcastId) {
-                details = null
+                // Fetch podcast details if not available
+                details = repository.getPodcastDetails(episode.podcastId).first().getOrNull()
             }
 
             var lastPosition = 0L
@@ -709,7 +710,7 @@ class PodcastViewModel(
 
             val mediaMetadata = MediaMetadata.Builder()
                 .setTitle(episode.title)
-                .setArtist(details?.podcast?.author)
+                .setArtist(details?.podcast?.title)
                 .setArtworkUri(artworkUri)
                 .build()
 
