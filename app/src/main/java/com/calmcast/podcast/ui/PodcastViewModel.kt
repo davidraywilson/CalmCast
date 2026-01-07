@@ -194,6 +194,13 @@ class PodcastViewModel(
     private var lastSaveTime: Long = 0L
     private val SAVE_INTERVAL_MS = 10000L // 10 seconds
 
+    private enum class AutoplayContext {
+        PODCAST,
+        DOWNLOADS
+    }
+
+    private var lastAutoplayContext: AutoplayContext = AutoplayContext.PODCAST
+
     private fun createCachedHttpClient(): OkHttpClient {
         val cacheDir = File(application.cacheDir, "http_rss_cache")
         if (!cacheDir.exists()) cacheDir.mkdirs()
@@ -329,32 +336,85 @@ class PodcastViewModel(
             _isPlayerReady.value = playbackState == Player.STATE_READY
             _isBuffering.value = playbackState == Player.STATE_BUFFERING
             if (playbackState == Player.STATE_ENDED && settingsManager.isAutoPlayNextEpisodeEnabledSync()) {
-                // if autoplay is enabled, play the next episode from the same podcast
-                // it should find the immediate next podcast that is newer than the current one
-                val currentPodcast = _currentPodcastDetails.value?.podcast
-                if (currentPodcast != null) {
-                    val episodes = _currentPodcastDetails.value?.episodes
-                    val currentIndex = episodes?.indexOf(_currentEpisode.value)
-                    val nextEpisode = if (currentIndex != null && currentIndex > 0) episodes[currentIndex - 1] else null
-
-                    // when we find one, play it
-                    if (nextEpisode != null) {
-                        playEpisode(nextEpisode, restart = true)
+                var handled = false
+                when (lastAutoplayContext) {
+                    AutoplayContext.PODCAST -> {
+                        val episodes = _currentPodcastDetails.value?.episodes
+                        val currentId = _currentEpisode.value?.id
+                        val currentIndex = episodes?.indexOfFirst { it.id == currentId } ?: -1
+                        val nextEpisode = if (currentIndex > 0) episodes?.get(currentIndex - 1) else null
+                        if (nextEpisode != null) {
+                            playEpisode(nextEpisode, restart = true, context = AutoplayContext.PODCAST)
+                            handled = true
+                        }
                     }
+                    AutoplayContext.DOWNLOADS -> {
+                        val downloadsOrdered = _downloads.value
+                            .filter { download ->
+                                download.status.name != "DELETED" &&
+                                    download.episode.id.isNotBlank() &&
+                                    download.episode.title.isNotBlank() &&
+                                    download.episode.audioUrl.isNotBlank()
+                            }
+                            .sortedByDescending { it.episode.publishDateMillis }
+
+                        val currentId = _currentEpisode.value?.id
+                        val currentIndex = downloadsOrdered.indexOfFirst { it.episode.id == currentId }
+                        val nextDownload = if (currentIndex > 0) downloadsOrdered.getOrNull(currentIndex - 1) else null
+                        if (nextDownload != null) {
+                            playEpisode(nextDownload.episode, restart = true, context = AutoplayContext.DOWNLOADS)
+                            handled = true
+                        }
+                    }
+                }
+                if (handled) {
+                    return
                 }
             }
 
-            else if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
+            if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
                 _currentEpisode.value = null
                 stopPositionUpdates()
             }
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            if (mediaItem != null) {
-                _currentEpisode.value = _downloads.value.find { it.episode.id == mediaItem.mediaId }?.episode
-            }
+            handleMediaItemChange(mediaItem)
         }
+    }
+
+    private fun handleMediaItemChange(mediaItem: MediaItem?) {
+        val controller = mediaController ?: return
+        if (mediaItem == null) {
+            // Nothing selected, just clear state
+            _currentEpisode.value = null
+            _isPlaying.value = false
+            stopPositionUpdates()
+            return
+        }
+
+        val mediaId = mediaItem.mediaId
+
+        // 1) Prefer a fully populated episode from downloads
+        val fromDownload = _downloads.value.find { it.episode.id == mediaId }?.episode
+        if (fromDownload != null) {
+            _currentEpisode.value = fromDownload
+            return
+        }
+
+        // 2) Fall back to the currently loaded podcast details, if present
+        val fromCurrentPodcast = _currentPodcastDetails.value?.episodes?.find { it.id == mediaId }
+        if (fromCurrentPodcast != null) {
+            _currentEpisode.value = fromCurrentPodcast
+            return
+        }
+
+        // 3) If we still can't map this media item to a known episode, stop playback so
+        //    we don't end up with "ghost" playback that the UI can't represent.
+        controller.stop()
+        _isPlaying.value = false
+        _currentEpisode.value = null
+        stopPositionUpdates()
     }
 
     private fun initializeMediaController() {
@@ -362,10 +422,22 @@ class PodcastViewModel(
         val sessionToken = SessionToken(application, ComponentName(application, PlaybackService::class.java))
         controllerFuture = MediaController.Builder(application, sessionToken).buildAsync()
         controllerFuture?.addListener({
-            mediaController = controllerFuture?.get()
-            mediaController?.addListener(playerListener)
-            _currentPosition.longValue = mediaController?.currentPosition ?: 0L
-            _duration.longValue = mediaController?.duration ?: 0L
+            val controller = controllerFuture?.get() ?: return@addListener
+            mediaController = controller
+            controller.addListener(playerListener)
+
+            _currentPosition.longValue = controller.currentPosition
+            _duration.longValue = controller.duration
+            _isPlaying.value = controller.isPlaying
+            _isBuffering.value = controller.playbackState == Player.STATE_BUFFERING
+
+            handleMediaItemChange(controller.currentMediaItem)
+
+            if (controller.isPlaying) {
+                startPositionUpdates()
+            } else {
+                stopPositionUpdates()
+            }
         }, MoreExecutors.directExecutor())
     }
 
@@ -672,7 +744,20 @@ class PodcastViewModel(
         }
     }
 
-    fun playEpisode(episode: Episode, restart: Boolean = false) {
+    fun playEpisodeFromPodcast(episode: Episode, restart: Boolean = false) {
+        playEpisode(episode, restart, AutoplayContext.PODCAST)
+    }
+
+    fun playEpisodeFromDownloads(episode: Episode, restart: Boolean = false) {
+        playEpisode(episode, restart, AutoplayContext.DOWNLOADS)
+    }
+
+    private fun playEpisode(
+        episode: Episode,
+        restart: Boolean = false,
+        context: AutoplayContext
+    ) {
+        lastAutoplayContext = context
         viewModelScope.launch {
             if (_currentEpisode.value != null && _currentPosition.longValue > 0) {
                 repository.savePlaybackPosition(
@@ -691,6 +776,9 @@ class PodcastViewModel(
             if (details == null || details.podcast.id != episode.podcastId) {
                 // Fetch podcast details if not available
                 details = repository.getPodcastDetails(episode.podcastId).first().getOrNull()
+                if (details != null && context == AutoplayContext.PODCAST) {
+                    _currentPodcastDetails.value = details
+                }
             }
 
             var lastPosition = 0L

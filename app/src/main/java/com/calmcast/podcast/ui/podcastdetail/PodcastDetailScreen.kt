@@ -22,6 +22,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.PaddingValues
@@ -248,7 +250,7 @@ fun EpisodeItem(
     onResumeClick: () -> Unit = {},
     removeDividers: Boolean = false,
     customPaddingValues: PaddingValues? = null
-    ) {
+) {
     val showDescriptionModal = remember { mutableStateOf(false) }
     val formattedDate = remember(episode.id, episode.publishDate) {
         DateTimeFormatter.formatPublishDate(episode.publishDate)
@@ -344,7 +346,12 @@ fun EpisodeItem(
                         }
                     }
                     DownloadStatus.PAUSED -> {
-                        // Cancel button will be rendered inline with progress bar
+                        Icon(
+                            imageVector = Icons.Outlined.Pause,
+                            contentDescription = "Paused",
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
                     }
                     DownloadStatus.FAILED, DownloadStatus.CANCELED, DownloadStatus.STORAGE_UNAVAILABLE -> {
                         // For failed, canceled, or storage unavailable downloads, show delete icon to remove them
@@ -442,6 +449,18 @@ fun EpisodeItem(
                             progress = { download.progress.coerceIn(0f, 1f) },
                             modifier = Modifier.weight(1f)
                         )
+
+                        IconButton(
+                            onClick = if (download.status == DownloadStatus.DOWNLOADING) onPauseClick else onResumeClick,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (download.status == DownloadStatus.DOWNLOADING) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                                contentDescription = if (download.status == DownloadStatus.DOWNLOADING) "Pause" else "Resume",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
                         IconButton(
                             onClick = onCancelClick,
                             modifier = Modifier.size(24.dp)

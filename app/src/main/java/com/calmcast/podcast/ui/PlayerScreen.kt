@@ -9,21 +9,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.AutoMode
-import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.SubdirectoryArrowRight
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.outlined.BedroomParent
 import androidx.compose.material.icons.outlined.BedtimeOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,20 +28,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.calmcast.podcast.data.PodcastRepository
 import com.calmcast.podcast.data.PodcastRepository.Episode
 import com.calmcast.podcast.ui.common.DashedDivider
 import com.calmcast.podcast.utils.DateTimeFormatter
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.checkbox.CheckboxMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
-import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.menus.DropdownMenuItemMMD
 import com.mudita.mmd.components.menus.DropdownMenuMMD
 import com.mudita.mmd.components.progress_indicator.CircularProgressIndicatorMMD
 import com.mudita.mmd.components.slider.SliderMMD
-import com.mudita.mmd.components.switcher.SwitchMMD
 import com.mudita.mmd.components.text.TextMMD
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.delay
 
 @Composable
 fun MiniPlayer(
@@ -119,6 +115,7 @@ fun MiniPlayer(
 @Composable
 fun FullPlayerScreen(
     episode: Episode?,
+    artworkUrl: String? = null,
     isPlaying: Boolean,
     isLoading: Boolean,
     onPlayPauseClick: () -> Unit,
@@ -147,6 +144,18 @@ fun FullPlayerScreen(
     var speedMenuExpanded by remember { mutableStateOf(false) }
     var sleepMenuExpanded by remember { mutableStateOf(false) }
 
+    var isArtworkFlashing by remember { mutableStateOf(false) }
+
+    // Trigger the flash when KeepScreenOn is enabled or artwork changes
+    LaunchedEffect(isKeepScreenOnEnabled, artworkUrl) {
+        if (isKeepScreenOnEnabled && !artworkUrl.isNullOrBlank()) {
+            isArtworkFlashing = true
+            // Delay for e-ink refresh (approx 500-800ms is usually good for a full refresh cycle)
+            delay(600)
+            isArtworkFlashing = false
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -165,29 +174,31 @@ fun FullPlayerScreen(
                 .weight(1f),
             verticalArrangement = Arrangement.Top
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .padding(top = 8.dp)
-                    .clickable(onClick = onMinimizeClick),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Now Playing",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
+            if (!isKeepScreenOnEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .padding(top = 8.dp)
+                        .clickable(onClick = onMinimizeClick),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Now Playing",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
 
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Minimize",
-                )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Minimize",
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(48.dp))
             }
-
-            Spacer(modifier = Modifier.height(48.dp))
 
             Column(
                 modifier = Modifier
@@ -197,6 +208,29 @@ fun FullPlayerScreen(
                 verticalArrangement = Arrangement.Bottom,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                if (isKeepScreenOnEnabled && !artworkUrl.isNullOrBlank()) {
+                    if (isArtworkFlashing) {
+                        // Render a pure black box to clear previous text artifacts (ghosting)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.Black)
+                        )
+                    } else {
+                        AsyncImage(
+                            model = artworkUrl,
+                            contentDescription = "Episode Artwork",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+
                 Text(
                     text = episode.title,
                     fontSize = 24.sp,
@@ -266,23 +300,25 @@ fun FullPlayerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = if (isKeepScreenOnEnabled) Arrangement.Center else Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ButtonMMD (
-                onClick = onSeekBackward,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
-            ) {
-                Text("${skipSeconds}s", color = MaterialTheme.colorScheme.onSecondary)
+            if (!isKeepScreenOnEnabled) {
+                ButtonMMD(
+                    onClick = onSeekBackward,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    )
+                ) {
+                    Text("${skipSeconds}s", color = MaterialTheme.colorScheme.onSecondary)
 
-                Icon(
-                    imageVector = Icons.Outlined.SubdirectoryArrowLeft,
-                    contentDescription = "Rewind ${skipSeconds}s",
-                    modifier = Modifier.size(22.dp).padding(start = 4.dp),
-                    tint = MaterialTheme.colorScheme.onSecondary
-                )
+                    Icon(
+                        imageVector = Icons.Outlined.SubdirectoryArrowLeft,
+                        contentDescription = "Rewind ${skipSeconds}s",
+                        modifier = Modifier.size(22.dp).padding(start = 4.dp),
+                        tint = MaterialTheme.colorScheme.onSecondary
+                    )
+                }
             }
 
             if (isLoading) {
@@ -318,20 +354,22 @@ fun FullPlayerScreen(
                 }
             }
 
-            ButtonMMD (
-                onClick = onSeekForward,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.SubdirectoryArrowRight,
-                    contentDescription = "Forward ${skipSeconds}s",
-                    modifier = Modifier.size(22.dp).padding(end = 4.dp),
-                    tint = MaterialTheme.colorScheme.onSecondary
-                )
+            if (!isKeepScreenOnEnabled) {
+                ButtonMMD(
+                    onClick = onSeekForward,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.SubdirectoryArrowRight,
+                        contentDescription = "Forward ${skipSeconds}s",
+                        modifier = Modifier.size(22.dp).padding(end = 4.dp),
+                        tint = MaterialTheme.colorScheme.onSecondary
+                    )
 
-                Text("${skipSeconds}s", color = MaterialTheme.colorScheme.onSecondary)
+                    Text("${skipSeconds}s", color = MaterialTheme.colorScheme.onSecondary)
+                }
             }
         }
 
@@ -369,116 +407,118 @@ fun FullPlayerScreen(
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .padding(end = 16.dp)
-                        .pointerInput(isSleepTimerActive) {
-                            detectTapGestures(
-                                onTap = {
-                                    if (isSleepTimerActive) {
-                                        onStopSleepTimer()
-                                    } else {
-                                        onStartSleepTimer()
-                                    }
-                                },
-                                onLongPress = { sleepMenuExpanded = true }
-                            )
-                        }
-                ) {
-                    Box() {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = if (isSleepTimerActive) Icons.Outlined.Bedtime else Icons.Outlined.BedtimeOff,
-                                contentDescription = if (isSleepTimerActive) "Sleep timer active - long press for options" else "Sleep timer off - long press for options",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-
-                        DropdownMenuMMD(
-                            expanded = sleepMenuExpanded,
-                            onDismissRequest = { sleepMenuExpanded = false }
-                        ) {
-                            com.calmcast.podcast.data.SettingsManager.SLEEP_TIMER_OPTIONS.forEach { minutes ->
-                                DropdownMenuItemMMD(
-                                    text = { TextMMD(if (minutes == 60) "1 hour" else "$minutes min") },
-                                    onClick = {
-                                        onSleepTimerMinutesChange(minutes)
-                                        onStartSleepTimer()
-                                        sleepMenuExpanded = false
-                                    }
+                if (!isKeepScreenOnEnabled) {
+                    Column(
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .pointerInput(isSleepTimerActive) {
+                                detectTapGestures(
+                                    onTap = {
+                                        if (isSleepTimerActive) {
+                                            onStopSleepTimer()
+                                        } else {
+                                            onStartSleepTimer()
+                                        }
+                                    },
+                                    onLongPress = { sleepMenuExpanded = true }
                                 )
+                            }
+                    ) {
+                        Box() {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = if (isSleepTimerActive) Icons.Outlined.Bedtime else Icons.Outlined.BedtimeOff,
+                                    contentDescription = if (isSleepTimerActive) "Sleep timer active - long press for options" else "Sleep timer off - long press for options",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
 
-                                if (minutes != com.calmcast.podcast.data.SettingsManager.SLEEP_TIMER_OPTIONS.last()) {
-                                    DashedDivider()
+                            DropdownMenuMMD(
+                                expanded = sleepMenuExpanded,
+                                onDismissRequest = { sleepMenuExpanded = false }
+                            ) {
+                                com.calmcast.podcast.data.SettingsManager.SLEEP_TIMER_OPTIONS.forEach { minutes ->
+                                    DropdownMenuItemMMD(
+                                        text = { TextMMD(if (minutes == 60) "1 hour" else "$minutes min") },
+                                        onClick = {
+                                            onSleepTimerMinutesChange(minutes)
+                                            onStartSleepTimer()
+                                            sleepMenuExpanded = false
+                                        }
+                                    )
+
+                                    if (minutes != com.calmcast.podcast.data.SettingsManager.SLEEP_TIMER_OPTIONS.last()) {
+                                        DashedDivider()
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                Column(
-                    modifier = Modifier
-                        .padding(end = 16.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = { onPlaybackSpeedClick() },
-                                onLongPress = { speedMenuExpanded = true }
-                            )
+                    Column(
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onTap = { onPlaybackSpeedClick() },
+                                    onLongPress = { speedMenuExpanded = true }
+                                )
+                            }
+                    ) {
+                        Box {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = String.format("%.1f", playbackSpeed) + "x",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+
+                            DropdownMenuMMD(
+                                expanded = speedMenuExpanded,
+                                onDismissRequest = { speedMenuExpanded = false }
+                            ) {
+                                com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.forEach { speed ->
+                                    DropdownMenuItemMMD(
+                                        text = { TextMMD(String.format("%.2f", speed) + "x") },
+                                        onClick = {
+                                            onPlaybackSpeedChange(speed)
+                                            speedMenuExpanded = false
+                                        }
+                                    )
+
+                                    if (speed != com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.last()) {
+                                        DashedDivider()
+                                    }
+                                }
+                            }
                         }
-                ) {
-                    Box {
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Column {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                text = String.format("%.1f", playbackSpeed) + "x",
-                                fontSize = 18.sp,
+                            TextMMD(
+                                text = "Autoplay",
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Normal
                             )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            CheckboxMMD(
+                                checked = isAutoPlayNextEpisodeEnabled,
+                                onCheckedChange = onAutoPlayNextEpisodeToggle,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-
-                        DropdownMenuMMD(
-                            expanded = speedMenuExpanded,
-                            onDismissRequest = { speedMenuExpanded = false }
-                        ) {
-                            com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.forEach { speed ->
-                                DropdownMenuItemMMD(
-                                    text = { TextMMD(String.format("%.2f", speed) + "x") },
-                                    onClick = {
-                                        onPlaybackSpeedChange(speed)
-                                        speedMenuExpanded = false
-                                    }
-                                )
-
-                                if (speed != com.calmcast.podcast.data.SettingsManager.PLAYBACK_SPEEDS.last()) {
-                                    DashedDivider()
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TextMMD(
-                            text = "Autoplay",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        CheckboxMMD(
-                            checked = isAutoPlayNextEpisodeEnabled,
-                            onCheckedChange = onAutoPlayNextEpisodeToggle,
-                            modifier = Modifier.size(18.dp)
-                        )
                     }
                 }
             }

@@ -572,7 +572,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                                 isBuffering = viewModel.isBuffering.value,
                                 currentPlayingEpisodeId = viewModel.currentEpisode.value?.id,
                                 onEpisodeClick = { episode: Episode ->
-                                    viewModel.playEpisode(episode)
+                                    viewModel.playEpisodeFromPodcast(episode)
                                 },
                                 onDownloadClick = { episode: Episode ->
                                     viewModel.downloadEpisode(episode)
@@ -612,7 +612,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                             currentPlayingEpisodeId = viewModel.currentEpisode.value?.id,
                             isBuffering = viewModel.isBuffering.value,
                             onEpisodeClick = { episode ->
-                                viewModel.playEpisode(episode)
+                                viewModel.playEpisodeFromDownloads(episode)
                             },
                             onDeleteClick = { episode ->
                                 viewModel.deleteEpisode(episode)
@@ -694,6 +694,7 @@ fun CalmCastApp(pipStateHolder: androidx.compose.runtime.MutableState<Boolean>, 
                 }
                 FullPlayerScreen(
                     episode = viewModel.currentEpisode.value,
+                    artworkUrl = viewModel.currentArtworkUri.value?.toString(),
                     isPlaying = viewModel.isPlaying.value,
                     isLoading = viewModel.isBuffering.value,
                     onPlayPauseClick = { viewModel.togglePlayPause() },

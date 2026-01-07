@@ -2,9 +2,6 @@ package com.calmcast.podcast
 
 import android.app.Application
 import androidx.work.Configuration
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import com.calmcast.podcast.data.PodcastDatabase
 import com.calmcast.podcast.data.SettingsManager
 import com.calmcast.podcast.data.SubscriptionManager
@@ -41,7 +38,7 @@ class CalmCastApplication : Application(), Configuration.Provider {
         val podcastDao = database.podcastDao()
         val settingsManager = SettingsManager(this)
         subscriptionManager = SubscriptionManager(this, podcastDao)
-        downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, podcastDao, settingsManager)
+        downloadManager = AndroidDownloadManager(this, okHttpClient, downloadDao, settingsManager)
 
         // Build a cached OkHttpClient for RSS/ItunesApiService
         val rssCacheDir = File(cacheDir, "http_rss_cache")
