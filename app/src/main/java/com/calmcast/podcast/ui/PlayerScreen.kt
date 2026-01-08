@@ -229,23 +229,24 @@ fun FullPlayerScreen(
                             contentScale = ContentScale.Crop
                         )
                     }
+                } else {
+                    Text(
+                        text = episode.title,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = episode.podcastTitle,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                    )
                 }
 
-                Text(
-                    text = episode.title,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = episode.podcastTitle,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Normal,
-                    textAlign = TextAlign.Center,
-                )
             }
         }
 
